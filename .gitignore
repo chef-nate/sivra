@@ -1,3 +1,6 @@
 out/
 bin/
 build/
+docs/doxygen/
+docs/architecture.md
+AGENTS.md
