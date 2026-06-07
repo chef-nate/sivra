@@ -1,0 +1,57 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++23
+
+IndentWidth: 2
+ContinuationIndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ColumnLimit: 100
+
+AccessModifierOffset: -2
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+QualifierAlignment: Left
+
+BreakBeforeBraces: Attach
+BreakBeforeTemplateCloser: true
+
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+PackArguments:
+  BinPack: OnePerLine
+
+
+PackConstructorInitializers: NextLine
+
+AlignAfterOpenBracket: true
+BreakAfterOpenBracketFunction: true
+BreakBeforeCloseBracketFunction: true
+
+BreakFunctionDeclarationParameters: true
+BreakFunctionDefinitionParameters: true
+
+PackParameters:
+  BinPack: AlwaysOnePerLine
+
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+
+FixNamespaceComments: true
+ReflowComments: Always
+SpacesInAngles: Never
+SpaceAfterCStyleCast: false
+Cpp11BracedListStyle: true
+
+BreakTemplateDeclarations: Yes
+PenaltyBreakTemplateDeclaration: 0
+...
