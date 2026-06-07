@@ -10,7 +10,8 @@ FILE_PATTERNS = *.hpp *.cpp *.md
 
 GENERATE_HTML = YES
 HTML_OUTPUT = html
-HTML_EXTRA_STYLESHEET = docs/theme/sivra-doxygen.css
+HTML_EXTRA_STYLESHEET = docs/theme/doxygen-awesome-css/doxygen-awesome.css \
+                        docs/theme/sivra-doxygen-awesome.css
 GENERATE_TREEVIEW = YES
 DISABLE_INDEX = NO
 SEARCHENGINE = YES
