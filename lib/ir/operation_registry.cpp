@@ -1,5 +1,6 @@
 #include <sivra/ir/operation_registry.hpp>
 
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -11,6 +12,12 @@ operation_id operation_registry::register_operation(
 ) {
   if (m_by_name.contains(name)) {
     throw std::invalid_argument("operation already registered");
+  }
+
+  // std::vector::size() may exceed uint32_t on 64-bit targets, so check before
+  // narrowing the size into an operation_id.
+  if (m_operations.size() > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::length_error("operation_registry operation_id limit exceeded");
   }
 
   const operation_id id(static_cast<std::uint32_t>(m_operations.size()));

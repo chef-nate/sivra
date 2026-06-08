@@ -26,14 +26,14 @@ public:
    * @param operation operation_id describing the node's operation.
    * @param result_type Type produced by this expression.
    * @param children Child expressions referenced by node_id.
-   * @param leaf Optional leaf_type_t value for leaf expressions.
+   * @param leaf_value Optional leaf_type_t value for leaf expressions.
    */
   expression_node(
     node_id id,
     operation_id operation,
     type result_type,
     std::vector<node_id> children,
-    std::optional<leaf_type_t> leaf = std::nullopt
+    std::optional<leaf_type_t> leaf_value = std::nullopt
   );
 
   /**
@@ -57,12 +57,15 @@ public:
   std::span<const node_id> children() const;
 
   /**
-   * @brief Returns the optional leaf_type_t value stored by this node.
+   * @brief Returns the optional leaf_type_t value associated with this node.
    */
-  const std::optional<leaf_type_t>& leaf() const;
+  const std::optional<leaf_type_t>& leaf_value() const;
 
   /**
    * @brief Returns true when this node has no child expressions.
+   *
+   * This is a structural property of the expression DAG. A leaf node is not
+   * required to have a leaf_type_t value.
    */
   bool is_leaf() const;
 
@@ -72,7 +75,7 @@ private:
   type m_type;
 
   std::vector<node_id> m_children;
-  std::optional<leaf_type_t> m_leaf;
+  std::optional<leaf_type_t> m_leaf_value;
 };
 
 } // namespace sivra::ir

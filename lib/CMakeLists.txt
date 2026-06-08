@@ -23,7 +23,8 @@ add_library(sivra::canonicalizer ALIAS sivra-canonicalizer)
 
 target_sources(sivra-canonicalizer
   PRIVATE
-    canonicalizer/canonicalizer.cpp
+    canonicalizer/engine.cpp
+    canonicalizer/options.cpp
 )
 
 target_include_directories(sivra-canonicalizer

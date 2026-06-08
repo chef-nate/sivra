@@ -23,14 +23,14 @@ public:
    * @param operation Operation kind for the new node.
    * @param result_type Result type produced by the expression.
    * @param children Child expression nodes referenced by id.
-   * @param leaf Optional leaf_type_t value for leaf expressions.
+   * @param leaf_value Optional leaf_type_t value associated with the new node.
    * @return Stable id assigned to the inserted node.
    */
   node_id add_node(
     operation_id operation,
     type result_type,
     std::vector<node_id> children,
-    std::optional<leaf_type_t> leaf = std::nullopt
+    std::optional<leaf_type_t> leaf_value = std::nullopt
   );
 
   /**
@@ -42,16 +42,6 @@ public:
   const expression_node& at(
     node_id id
   ) const;
-
-  /**
-   * @brief Looks up a mutable node by id.
-   *
-   * @param id node_id returned by add_node().
-   * @return Mutable reference to the stored expression node.
-   */
-  expression_node& at(
-    node_id id
-  );
 
   /**
    * @brief Returns the number of nodes stored in the graph.
