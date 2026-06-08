@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @class operation_id
@@ -62,4 +62,4 @@ private:
   std::uint32_t m_value;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

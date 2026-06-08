@@ -1,6 +1,6 @@
 #pragma once
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @brief Host-side floating-point type used to store recovered scalar constants.
@@ -17,4 +17,4 @@ enum class scalar_type {
   i32,     ///< 32-bit integer scalar.
 };
 
-} // namespace sivra
+} // namespace sivra::ir

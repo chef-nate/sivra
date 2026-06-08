@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @class operation_registry
@@ -23,12 +23,24 @@ public:
    * @brief Registers a new operation definition.
    *
    * @param name Unique operation name.
+   * @param semantics Algebraic semantics associated with the operation.
+   * @return operation_id assigned to the registered operation.
+   */
+  operation_id register_operation(
+    std::string name,
+    operation_semantics semantics = {}
+  );
+
+  /**
+   * @brief Registers a new operation definition from a trait mask.
+   *
+   * @param name Unique operation name.
    * @param traits Algebraic traits associated with the operation.
    * @return operation_id assigned to the registered operation.
    */
   operation_id register_operation(
     std::string name,
-    operation_trait traits = operation_trait::none
+    operation_trait traits
   );
 
   /**
@@ -68,4 +80,4 @@ private:
   std::unordered_map<std::string, operation_id> m_by_name;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

@@ -6,7 +6,7 @@
 #include <string>
 #include <variant>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @struct memory_ref
@@ -46,4 +46,4 @@ struct symbol_ref {
  */
 using leaf_type = std::variant<memory_ref, constant_value, symbol_ref>;
 
-} // namespace sivra
+} // namespace sivra::ir

@@ -1,12 +1,14 @@
 #pragma once
 
 #include "id.hpp"
+#include "scalar_type.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @enum operation_trait
@@ -44,11 +46,33 @@ constexpr operation_trait operator&(
 }
 
 /**
+ * @struct operation_constant
+ * @brief Describes an untyped algebraic constant for an operation.
+ *
+ * operation_constant stores the recovered value for an identity or annihilator.
+ * The scalar lane type is supplied by the expression using the operation.
+ */
+struct operation_constant {
+  recovered_float value;
+};
+
+/**
+ * @struct operation_semantics
+ * @brief Describes algebraic behavior associated with an operation.
+ */
+struct operation_semantics {
+  operation_trait traits = operation_trait::none;
+  std::optional<operation_constant> identity;
+  std::optional<operation_constant> annihilator;
+  std::string notes;
+};
+
+/**
  * @class operation_def
  * @brief Describes an operation kind known to the IR.
  *
  * operation_def stores the operation's stable operation_id, display name, and
- * algebraic traits.
+ * algebraic semantics.
  */
 class operation_def {
 public:
@@ -57,12 +81,12 @@ public:
    *
    * @param id operation_id assigned by an operation_registry.
    * @param name Human-readable operation name.
-   * @param traits Algebraic traits associated with the operation.
+   * @param semantics Algebraic semantics associated with the operation.
    */
   operation_def(
     operation_id id,
     std::string name,
-    operation_trait traits
+    operation_semantics semantics = {}
   );
 
   /**
@@ -76,6 +100,11 @@ public:
   std::string_view name() const;
 
   /**
+   * @brief Returns the algebraic semantics associated with this operation.
+   */
+  const operation_semantics& semantics() const;
+
+  /**
    * @brief Checks whether this operation has all requested traits.
    *
    * Passing a combined trait mask requires every requested trait to be present.
@@ -87,7 +116,7 @@ public:
 private:
   operation_id m_id;
   std::string m_name;
-  operation_trait m_traits;
+  operation_semantics m_semantics;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

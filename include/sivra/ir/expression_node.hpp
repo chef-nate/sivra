@@ -8,7 +8,7 @@
 #include <span>
 #include <vector>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @class expression_node
@@ -75,4 +75,4 @@ private:
   std::optional<leaf_type> m_leaf;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

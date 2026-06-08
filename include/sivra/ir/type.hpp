@@ -2,7 +2,7 @@
 
 #include "scalar_type.hpp"
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @class type
@@ -32,4 +32,4 @@ private:
   scalar_type m_scalar;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

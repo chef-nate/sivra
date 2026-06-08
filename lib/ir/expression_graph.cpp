@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace sivra {
+namespace sivra::ir {
 
 node_id expression_graph::add_node(
   operation_id operation,
@@ -31,4 +31,4 @@ std::size_t expression_graph::size() const {
   return m_nodes.size();
 }
 
-} // namespace sivra
+} // namespace sivra::ir

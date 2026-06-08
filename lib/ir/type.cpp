@@ -1,6 +1,6 @@
 #include <sivra/ir/type.hpp>
 
-namespace sivra {
+namespace sivra::ir {
 
 type::type(
   scalar_type scalar
@@ -18,4 +18,4 @@ bool type::operator==(
   return m_scalar == other.m_scalar;
 }
 
-} // namespace sivra
+} // namespace sivra::ir

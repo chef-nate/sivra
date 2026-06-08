@@ -3,20 +3,27 @@
 #include <stdexcept>
 #include <utility>
 
-namespace sivra {
+namespace sivra::ir {
 
 operation_id operation_registry::register_operation(
   std::string name,
-  operation_trait traits
+  operation_semantics semantics
 ) {
   if (m_by_name.contains(name)) {
     throw std::invalid_argument("operation already registered");
   }
 
   const operation_id id(static_cast<std::uint32_t>(m_operations.size()));
-  m_operations.emplace_back(id, name, traits);
+  m_operations.emplace_back(id, name, std::move(semantics));
   m_by_name.emplace(std::move(name), id);
   return id;
+}
+
+operation_id operation_registry::register_operation(
+  std::string name,
+  operation_trait traits
+) {
+  return register_operation(std::move(name), operation_semantics{.traits = traits});
 }
 
 const operation_def& operation_registry::at(
@@ -46,4 +53,4 @@ std::span<const operation_def> operation_registry::operations() const {
   return m_operations;
 }
 
-} // namespace sivra
+} // namespace sivra::ir

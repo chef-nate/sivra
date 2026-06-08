@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace sivra {
+namespace sivra::ir {
 
 expression_node::expression_node(
   node_id id,
@@ -42,4 +42,4 @@ bool expression_node::is_leaf() const {
   return m_children.empty();
 }
 
-} // namespace sivra
+} // namespace sivra::ir

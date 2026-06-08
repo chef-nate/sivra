@@ -6,7 +6,7 @@
 #include <optional>
 #include <vector>
 
-namespace sivra {
+namespace sivra::ir {
 
 /**
  * @class expression_graph
@@ -62,4 +62,4 @@ private:
   std::vector<expression_node> m_nodes;
 };
 
-} // namespace sivra
+} // namespace sivra::ir

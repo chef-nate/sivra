@@ -1,6 +1,6 @@
 #include <sivra/ir/id.hpp>
 
-namespace sivra {
+namespace sivra::ir {
 
 operation_id::operation_id(
   std::uint32_t value
@@ -46,4 +46,4 @@ bool node_id::operator<(
   return m_value < other.m_value;
 }
 
-} // namespace sivra
+} // namespace sivra::ir
