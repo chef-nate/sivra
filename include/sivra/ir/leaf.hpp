@@ -27,7 +27,7 @@ struct memory_ref {
  */
 struct constant_value {
   scalar_type scalar;
-  recovered_float value;
+  recovered_float_t value;
 };
 
 /**
@@ -44,6 +44,6 @@ struct symbol_ref {
 /**
  * @brief Leaf expression value stored by expression_node.
  */
-using leaf_type = std::variant<memory_ref, constant_value, symbol_ref>;
+using leaf_type_t = std::variant<memory_ref, constant_value, symbol_ref>;
 
 } // namespace sivra::ir

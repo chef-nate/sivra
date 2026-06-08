@@ -9,7 +9,7 @@ expression_node::expression_node(
   operation_id operation,
   type result_type,
   std::vector<node_id> children,
-  std::optional<leaf_type> leaf
+  std::optional<leaf_type_t> leaf
 )
     : m_node_id(id),
       m_operation_id(operation),
@@ -34,7 +34,7 @@ std::span<const node_id> expression_node::children() const {
   return m_children;
 }
 
-const std::optional<leaf_type>& expression_node::leaf() const {
+const std::optional<leaf_type_t>& expression_node::leaf() const {
   return m_leaf;
 }
 

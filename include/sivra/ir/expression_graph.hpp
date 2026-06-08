@@ -23,14 +23,14 @@ public:
    * @param operation Operation kind for the new node.
    * @param result_type Result type produced by the expression.
    * @param children Child expression nodes referenced by id.
-   * @param leaf Optional leaf_type value for leaf expressions.
+   * @param leaf Optional leaf_type_t value for leaf expressions.
    * @return Stable id assigned to the inserted node.
    */
   node_id add_node(
     operation_id operation,
     type result_type,
     std::vector<node_id> children,
-    std::optional<leaf_type> leaf = std::nullopt
+    std::optional<leaf_type_t> leaf = std::nullopt
   );
 
   /**

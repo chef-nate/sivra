@@ -46,6 +46,15 @@ constexpr operation_trait operator&(
 }
 
 /**
+ * @brief Inverts an operation_trait mask.
+ */
+constexpr operation_trait operator~(
+  operation_trait value
+) {
+  return static_cast<operation_trait>(~static_cast<std::uint32_t>(value));
+}
+
+/**
  * @struct operation_constant
  * @brief Describes an untyped algebraic constant for an operation.
  *
@@ -53,7 +62,7 @@ constexpr operation_trait operator&(
  * The scalar lane type is supplied by the expression using the operation.
  */
 struct operation_constant {
-  recovered_float value;
+  recovered_float_t value;
 };
 
 /**

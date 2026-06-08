@@ -15,7 +15,7 @@ namespace sivra::ir {
  * @brief Represents one node in an expression DAG.
  *
  * expression_node stores the operation, result type, child node identifiers,
- * and optional leaf_type value for a single expression.
+ * and optional leaf_type_t value for a single expression.
  */
 class expression_node {
 public:
@@ -26,14 +26,14 @@ public:
    * @param operation operation_id describing the node's operation.
    * @param result_type Type produced by this expression.
    * @param children Child expressions referenced by node_id.
-   * @param leaf Optional leaf_type value for leaf expressions.
+   * @param leaf Optional leaf_type_t value for leaf expressions.
    */
   expression_node(
     node_id id,
     operation_id operation,
     type result_type,
     std::vector<node_id> children,
-    std::optional<leaf_type> leaf = std::nullopt
+    std::optional<leaf_type_t> leaf = std::nullopt
   );
 
   /**
@@ -57,9 +57,9 @@ public:
   std::span<const node_id> children() const;
 
   /**
-   * @brief Returns the optional leaf_type value stored by this node.
+   * @brief Returns the optional leaf_type_t value stored by this node.
    */
-  const std::optional<leaf_type>& leaf() const;
+  const std::optional<leaf_type_t>& leaf() const;
 
   /**
    * @brief Returns true when this node has no child expressions.
@@ -72,7 +72,7 @@ private:
   type m_type;
 
   std::vector<node_id> m_children;
-  std::optional<leaf_type> m_leaf;
+  std::optional<leaf_type_t> m_leaf;
 };
 
 } // namespace sivra::ir

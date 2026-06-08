@@ -5,7 +5,7 @@ namespace sivra::ir {
 /**
  * @brief Host-side floating-point type used to store recovered scalar constants.
  */
-using recovered_float = double;
+using recovered_float_t = double;
 
 /**
  * @enum scalar_type
