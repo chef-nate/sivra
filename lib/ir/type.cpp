@@ -1,21 +1,161 @@
 #include <sivra/ir/type.hpp>
 
+#include <functional>
+#include <memory>
+
 namespace sivra::ir {
 
-type::type(
-  scalar_type scalar
-)
-    : m_scalar(scalar) {
+namespace {
+
+inline void hash_combine(
+  std::size_t&
+) {
 }
 
-scalar_type type::scalar() const {
+template <
+  typename T,
+  typename... Rest
+>
+inline void hash_combine(
+  std::size_t& seed,
+  const T& value,
+  Rest... rest
+) {
+  std::hash<T> hasher;
+  seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+  hash_combine(seed, rest...);
+}
+
+} // namespace
+
+type::type(
+  type_kind kind
+)
+    : m_kind(kind) {
+}
+
+type_kind type::kind() const {
+  return m_kind;
+}
+
+unknown_type::unknown_type() : type(type_kind::unknown) {
+}
+
+scalar_type_def::scalar_type_def(
+  scalar_type scalar
+)
+    : type(type_kind::scalar),
+      m_scalar(scalar) {
+}
+
+scalar_type scalar_type_def::scalar() const {
   return m_scalar;
 }
 
-bool type::operator==(
-  const type& other
+vector_type_def::vector_type_def(
+  const type& element_type,
+  std::uint32_t elements
+)
+    : type(type_kind::vector),
+      m_element_type(&element_type),
+      m_elements(elements) {
+}
+
+const type& vector_type_def::element_type() const {
+  return *m_element_type;
+}
+
+std::uint32_t vector_type_def::elements() const {
+  return m_elements;
+}
+
+matrix_type_def::matrix_type_def(
+  const type& element_type,
+  std::uint32_t rows,
+  std::uint32_t columns
+)
+    : type(type_kind::matrix),
+      m_element_type(&element_type),
+      m_rows(rows),
+      m_columns(columns) {
+}
+
+const type& matrix_type_def::element_type() const {
+  return *m_element_type;
+}
+
+std::uint32_t matrix_type_def::rows() const {
+  return m_rows;
+}
+
+std::uint32_t matrix_type_def::columns() const {
+  return m_columns;
+}
+
+std::size_t type_context::vector_key_hash::operator()(
+  type_context::vector_key key
 ) const {
-  return m_scalar == other.m_scalar;
+  std::size_t seed = 0;
+  hash_combine(seed, key.element_type, key.elements);
+  return seed;
+}
+
+std::size_t type_context::matrix_key_hash::operator()(
+  type_context::matrix_key key
+) const {
+  std::size_t seed = 0;
+  hash_combine(seed, key.element_type, key.rows, key.columns);
+  return seed;
+}
+
+const unknown_type& type_context::unknown() {
+  if (m_unknown == nullptr) {
+    m_unknown = std::make_unique<unknown_type>();
+  }
+
+  return *m_unknown;
+}
+
+const scalar_type_def& type_context::scalar(
+  scalar_type scalar
+) {
+  if (const auto iter = m_scalars.find(scalar); iter != m_scalars.end()) {
+    return *iter->second;
+  }
+
+  const auto inserted = m_scalars.emplace(scalar, std::make_unique<scalar_type_def>(scalar));
+  return *inserted.first->second;
+}
+
+const vector_type_def& type_context::vector(
+  const type& element_type,
+  std::uint32_t elements
+) {
+  const vector_key key{.element_type = &element_type, .elements = elements};
+
+  if (const auto iter = m_vectors.find(key); iter != m_vectors.end()) {
+    return *iter->second;
+  }
+
+  const auto inserted =
+    m_vectors.emplace(key, std::make_unique<vector_type_def>(element_type, elements));
+  return *inserted.first->second;
+}
+
+const matrix_type_def& type_context::matrix(
+  const type& element_type,
+  std::uint32_t rows,
+  std::uint32_t columns
+) {
+  const matrix_key key{.element_type = &element_type, .rows = rows, .columns = columns};
+
+  if (const auto iter = m_matrices.find(key); iter != m_matrices.end()) {
+    return *iter->second;
+  }
+
+  const auto inserted =
+    m_matrices.emplace(key, std::make_unique<matrix_type_def>(element_type, rows, columns));
+  return *inserted.first->second;
 }
 
 } // namespace sivra::ir

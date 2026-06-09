@@ -59,7 +59,7 @@ constexpr operation_trait operator~(
  * @brief Describes an untyped algebraic constant for an operation.
  *
  * operation_constant stores the recovered value for an identity or annihilator.
- * The scalar lane type is supplied by the expression using the operation.
+ * The expression using the operation supplies the concrete result type.
  */
 struct operation_constant {
   recovered_float_t value;

@@ -28,7 +28,7 @@ public:
    */
   node_id add_node(
     operation_id operation,
-    type result_type,
+    const type& result_type,
     std::vector<node_id> children,
     std::optional<leaf_type_t> leaf_value = std::nullopt
   );

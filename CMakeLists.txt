@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 4.2.2)
 project(
   sivra
   VERSION 0.1
-  DESCRIPTION "SIMD Instruction Vector Recovery and Analysis"
+  DESCRIPTION "SIMD Vector Recovery and Analysis"
   LANGUAGES CXX
 )
 
@@ -32,7 +32,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(doctest)
 
-# enable_testing()
+enable_testing()
 
 add_subdirectory(lib)
 add_subdirectory(tools/sivra)

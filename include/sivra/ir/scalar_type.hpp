@@ -9,7 +9,7 @@ using recovered_float_t = double;
 
 /**
  * @enum scalar_type
- * @brief Scalar lane types represented by the IR.
+ * @brief Scalar value categories represented by the IR.
  */
 enum class scalar_type {
   unknown, ///< Type is not known or has not been assigned.

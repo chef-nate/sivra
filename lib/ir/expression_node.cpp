@@ -7,13 +7,13 @@ namespace sivra::ir {
 expression_node::expression_node(
   node_id id,
   operation_id operation,
-  type result_type,
+  const type& result_type,
   std::vector<node_id> children,
   std::optional<leaf_type_t> leaf_value
 )
     : m_node_id(id),
       m_operation_id(operation),
-      m_type(result_type),
+      m_type(&result_type),
       m_children(std::move(children)),
       m_leaf_value(std::move(leaf_value)) {
 }
@@ -27,7 +27,7 @@ operation_id expression_node::operation() const {
 }
 
 const type& expression_node::result_type() const {
-  return m_type;
+  return *m_type;
 }
 
 std::span<const node_id> expression_node::children() const {
