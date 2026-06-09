@@ -7,14 +7,20 @@
  * SIVRA_CANONICALIZER_RULE(name, bit_value, enabled_by_default, description)
  */
 SIVRA_CANONICALIZER_RULE(
-  identity_elimination,
+  associative_flattening,
   1u << 0,
+  true,
+  "Flattens nested uses of an associative operation."
+)
+SIVRA_CANONICALIZER_RULE(
+  identity_elimination,
+  1u << 1,
   true,
   "Removes operands equal to an operation's identity."
 )
 SIVRA_CANONICALIZER_RULE(
   annihilator_collapse,
-  1u << 1,
+  1u << 2,
   true,
   "Replaces an operation with an operand equal to its annihilator."
 )

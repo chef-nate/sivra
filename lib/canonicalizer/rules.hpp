@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sivra/canonicalizer/rule.hpp>
+#include <sivra/canonicalizer/options.hpp>
 #include <sivra/ir/expression_graph.hpp>
 #include <sivra/ir/expression_node.hpp>
 #include <sivra/ir/operation.hpp>
@@ -24,8 +24,13 @@ namespace sivra::canonicalizer {
 class rewrite_context {
 public:
   rewrite_context(
-    ir::expression_graph& rebuilt
+    ir::expression_graph& rebuilt,
+    const options& config
   );
+
+  [[nodiscard]] bool is_trait_enabled(
+    ir::operation_trait trait
+  ) const;
 
   [[nodiscard]] const ir::operation_def& operation_for(
     const ir::expression_node& source_node
@@ -42,6 +47,7 @@ public:
 
 private:
   ir::expression_graph& m_rebuilt;
+  const options& m_options;
 };
 
 enum class rewrite_action {

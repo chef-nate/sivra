@@ -9,22 +9,26 @@ TEST_CASE(
   "canonicalizer options enable rules individually and in combined masks"
 ) {
   sivra::canonicalizer::options options;
-  const auto combined = sivra::canonicalizer::rule::identity_elimination |
+  const auto combined = sivra::canonicalizer::rule::associative_flattening |
+                        sivra::canonicalizer::rule::identity_elimination |
                         sivra::canonicalizer::rule::annihilator_collapse;
 
+  CHECK(options.is_rule_enabled(sivra::canonicalizer::rule::associative_flattening));
   CHECK(options.is_rule_enabled(sivra::canonicalizer::rule::identity_elimination));
   CHECK(options.is_rule_enabled(sivra::canonicalizer::rule::annihilator_collapse));
   CHECK(options.is_rule_enabled(combined));
 
-  options.disable_rule(sivra::canonicalizer::rule::annihilator_collapse);
+  options.disable_rule(sivra::canonicalizer::rule::associative_flattening);
+  CHECK(!options.is_rule_enabled(sivra::canonicalizer::rule::associative_flattening));
   CHECK(options.is_rule_enabled(sivra::canonicalizer::rule::identity_elimination));
-  CHECK(!options.is_rule_enabled(sivra::canonicalizer::rule::annihilator_collapse));
+  CHECK(options.is_rule_enabled(sivra::canonicalizer::rule::annihilator_collapse));
   CHECK(!options.is_rule_enabled(combined));
 
-  options.enable_rule(sivra::canonicalizer::rule::annihilator_collapse);
+  options.enable_rule(sivra::canonicalizer::rule::associative_flattening);
   CHECK(options.is_rule_enabled(combined));
 
   options.disable_rule(combined);
+  CHECK(!options.is_rule_enabled(sivra::canonicalizer::rule::associative_flattening));
   CHECK(!options.is_rule_enabled(sivra::canonicalizer::rule::identity_elimination));
   CHECK(!options.is_rule_enabled(sivra::canonicalizer::rule::annihilator_collapse));
 

@@ -81,7 +81,7 @@ private:
     const sivra::ir::expression_node& source_node,
     std::vector<sivra::ir::node_id> copied_children
   ) {
-    sivra::canonicalizer::rewrite_context context(m_rebuilt);
+    sivra::canonicalizer::rewrite_context context(m_rebuilt, m_options);
     for (const auto& entry : sivra::canonicalizer::rule_pipeline()) {
       if (!m_options.is_rule_enabled(entry.id)) {
         continue;

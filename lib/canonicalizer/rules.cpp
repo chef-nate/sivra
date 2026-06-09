@@ -145,6 +145,14 @@ bool is_annihilator_operand(
   return annihilator.has_value() && constant_operand_matches(source_node, child_node, *annihilator);
 }
 
+bool is_flattenable_associative_child(
+  const sivra::ir::expression_node& parent,
+  const sivra::ir::expression_node& child
+) {
+  return child.operation() == parent.operation() && &child.result_type() == &parent.result_type() &&
+         child.children().size() >= 2 && !child.leaf_value().has_value();
+}
+
 std::optional<sivra::ir::node_id> remove_identity_operands(
   sivra::canonicalizer::rewrite_context& context,
   const sivra::ir::expression_node& source_node,
@@ -166,6 +174,42 @@ std::optional<sivra::ir::node_id> remove_identity_operands(
   });
 
   return first_identity;
+}
+
+sivra::canonicalizer::rewrite_result apply_associative_flattening(
+  sivra::canonicalizer::rewrite_context& context,
+  const sivra::ir::expression_node& source_node,
+  std::vector<sivra::ir::node_id>& children
+) {
+  const auto& operation = context.operation_for(source_node);
+  if (!context.is_trait_enabled(sivra::ir::operation_trait::associative) ||
+      !operation.has_trait(sivra::ir::operation_trait::associative) || children.size() < 2) {
+    return {};
+  }
+
+  std::vector<sivra::ir::node_id> flattened;
+  flattened.reserve(children.size());
+
+  bool changed = false;
+  for (const auto child : children) {
+    const auto& child_node = context.rebuilt_node(child);
+    if (!is_flattenable_associative_child(source_node, child_node)) {
+      flattened.push_back(child);
+      continue;
+    }
+
+    flattened.insert(flattened.end(), child_node.children().begin(), child_node.children().end());
+    changed = true;
+  }
+
+  if (!changed) {
+    return {};
+  }
+
+  children = std::move(flattened);
+  return {
+    .action = sivra::canonicalizer::rewrite_action::children_changed,
+  };
 }
 
 sivra::canonicalizer::rewrite_result apply_identity_elimination(
@@ -242,9 +286,17 @@ const std::array rule_entries{
 namespace sivra::canonicalizer {
 
 rewrite_context::rewrite_context(
-  ir::expression_graph& rebuilt
+  ir::expression_graph& rebuilt,
+  const options& config
 )
-    : m_rebuilt(rebuilt) {
+    : m_rebuilt(rebuilt),
+      m_options(config) {
+}
+
+bool rewrite_context::is_trait_enabled(
+  ir::operation_trait trait
+) const {
+  return m_options.is_trait_enabled(trait);
 }
 
 const ir::operation_def& rewrite_context::operation_for(

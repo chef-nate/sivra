@@ -3,6 +3,7 @@ add_executable(sivra-unittests)
 target_sources(sivra-unittests
   PRIVATE
     canonicalizer/algebraic_rules_tests.cpp
+    canonicalizer/associative_flattening_tests.cpp
     canonicalizer/engine_context_tests.cpp
     canonicalizer/engine_rebuild_tests.cpp
     canonicalizer/options_tests.cpp
