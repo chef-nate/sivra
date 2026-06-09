@@ -1,5 +1,6 @@
 #pragma once
 
+#include "constant.hpp"
 #include "scalar_type.hpp"
 
 #include <cstddef>
@@ -19,15 +20,6 @@ struct memory_ref {
   scalar_type scalar;
   std::string base_register;
   std::ptrdiff_t offset;
-};
-
-/**
- * @struct constant_value
- * @brief Describes a literal scalar value used as a leaf expression.
- */
-struct constant_value {
-  scalar_type scalar;
-  recovered_float_t value;
 };
 
 /**

@@ -12,9 +12,10 @@ namespace sivra::canonicalizer {
  * Trait-driven behavior is controlled separately through options::enabled_traits.
  */
 enum class rule : std::uint32_t {
-  none = 0,                       ///< No canonicalization rules.
-  identity_elimination = 1u << 0, ///< Removes identity operands.
-  annihilator_collapse = 1u << 1, ///< Collapses expressions containing annihilators.
+  none = 0, ///< No canonicalization rules.
+#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default) name = value,
+#include "rule.def"
+#undef SIVRA_CANONICALIZER_RULE
 };
 
 /**
@@ -50,7 +51,16 @@ constexpr rule operator~(
  * @brief Returns the rule mask enabled by default.
  */
 [[nodiscard]] constexpr rule default_enabled_rules() {
-  return rule::identity_elimination | rule::annihilator_collapse;
+  auto enabled = rule::none;
+
+#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default)                                  \
+  if constexpr (enabled_by_default) {                                                              \
+    enabled = enabled | rule::name;                                                                \
+  }
+#include "rule.def"
+#undef SIVRA_CANONICALIZER_RULE
+
+  return enabled;
 }
 
 } // namespace sivra::canonicalizer

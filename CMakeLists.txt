@@ -25,6 +25,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cli11)
 
 FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+)
+
+FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
   doctest
   GIT_REPOSITORY https://github.com/doctest/doctest.git
   GIT_TAG v2.4.12

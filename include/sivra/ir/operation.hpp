@@ -1,12 +1,13 @@
 #pragma once
 
+#include "constant.hpp"
 #include "id.hpp"
-#include "scalar_type.hpp"
 
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 
 namespace sivra::ir {
 
@@ -54,15 +55,20 @@ constexpr operation_trait operator~(
   return static_cast<operation_trait>(~static_cast<std::uint32_t>(value));
 }
 
+enum class well_known_constant {
+  zero,
+  one,
+  all_bits_set,
+};
+
+using operation_constant_value = std::variant<well_known_constant, scalar_constant_t>;
+
 /**
  * @struct operation_constant
- * @brief Describes an untyped algebraic constant for an operation.
- *
- * operation_constant stores the recovered value for an identity or annihilator.
- * The expression using the operation supplies the concrete result type.
+ * @brief Describes a uniform algebraic constant for an operation.
  */
 struct operation_constant {
-  recovered_float_t value;
+  operation_constant_value element;
 };
 
 /**

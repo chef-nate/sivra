@@ -9,6 +9,8 @@
 
 namespace sivra::ir {
 
+class type_context;
+
 /**
  * @enum type_kind
  * @brief Identifies the concrete category of an IR type.
@@ -31,14 +33,17 @@ class type {
 public:
   virtual ~type() = default;
 
+  const type_context& context() const;
   type_kind kind() const;
 
 protected:
-  explicit type(
+  type(
+    const type_context& context,
     type_kind kind
   );
 
 private:
+  const type_context* m_context;
   type_kind m_kind;
 };
 
@@ -47,8 +52,12 @@ private:
  * @brief Represents an expression type that has not been recovered.
  */
 class unknown_type final : public type {
-public:
-  unknown_type();
+  friend class type_context;
+
+private:
+  explicit unknown_type(
+    const type_context& context
+  );
 };
 
 /**
@@ -57,13 +66,16 @@ public:
  */
 class scalar_type_def final : public type {
 public:
-  explicit scalar_type_def(
-    scalar_type scalar
-  );
-
   scalar_type scalar() const;
 
 private:
+  friend class type_context;
+
+  scalar_type_def(
+    const type_context& context,
+    scalar_type scalar
+  );
+
   scalar_type m_scalar;
 };
 
@@ -76,15 +88,18 @@ private:
  */
 class vector_type_def final : public type {
 public:
-  vector_type_def(
-    const type& element_type,
-    std::uint32_t elements
-  );
-
   const type& element_type() const;
   std::uint32_t elements() const;
 
 private:
+  friend class type_context;
+
+  vector_type_def(
+    const type_context& context,
+    const type& element_type,
+    std::uint32_t elements
+  );
+
   const type* m_element_type;
   std::uint32_t m_elements;
 };
@@ -97,17 +112,20 @@ private:
  */
 class matrix_type_def final : public type {
 public:
-  matrix_type_def(
-    const type& element_type,
-    std::uint32_t rows,
-    std::uint32_t columns
-  );
-
   const type& element_type() const;
   std::uint32_t rows() const;
   std::uint32_t columns() const;
 
 private:
+  friend class type_context;
+
+  matrix_type_def(
+    const type_context& context,
+    const type& element_type,
+    std::uint32_t rows,
+    std::uint32_t columns
+  );
+
   const type* m_element_type;
   std::uint32_t m_rows;
   std::uint32_t m_columns;
@@ -122,6 +140,24 @@ private:
  */
 class type_context {
 public:
+  type_context() = default;
+
+  type_context(
+    const type_context&
+  ) = delete;
+
+  type_context(
+    type_context&&
+  ) = delete;
+
+  type_context& operator=(
+    const type_context&
+  ) = delete;
+
+  type_context& operator=(
+    type_context&&
+  ) = delete;
+
   /**
    * @brief Returns the context-owned unknown type.
    */

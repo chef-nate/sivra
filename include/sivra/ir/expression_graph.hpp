@@ -1,6 +1,7 @@
 #pragma once
 
 #include "expression_node.hpp"
+#include "ir_context.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -17,6 +18,15 @@ namespace sivra::ir {
  */
 class expression_graph {
 public:
+  explicit expression_graph(
+    const ir_context& context
+  );
+
+  /**
+   * @brief Returns the context that owns this graph's operations and types.
+   */
+  const ir_context& context() const;
+
   /**
    * @brief Adds a new expression node to the graph.
    *
@@ -31,6 +41,14 @@ public:
     const type& result_type,
     std::vector<node_id> children,
     std::optional<leaf_type_t> leaf_value = std::nullopt
+  );
+
+  /**
+   * @brief Adds a constant expression using the constant's result type.
+   */
+  node_id add_constant(
+    operation_id operation,
+    constant_value value
   );
 
   /**
@@ -49,6 +67,7 @@ public:
   std::size_t size() const;
 
 private:
+  const ir_context* m_context;
   std::vector<expression_node> m_nodes;
 };
 

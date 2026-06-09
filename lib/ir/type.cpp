@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <stdexcept>
 
 namespace sivra::ir {
 
@@ -29,22 +30,38 @@ inline void hash_combine(
 } // namespace
 
 type::type(
+  const type_context& context,
   type_kind kind
 )
-    : m_kind(kind) {
+    : m_context(&context),
+      m_kind(kind) {
+}
+
+const type_context& type::context() const {
+  return *m_context;
 }
 
 type_kind type::kind() const {
   return m_kind;
 }
 
-unknown_type::unknown_type() : type(type_kind::unknown) {
+unknown_type::unknown_type(
+  const type_context& context
+)
+    : type(
+        context,
+        type_kind::unknown
+      ) {
 }
 
 scalar_type_def::scalar_type_def(
+  const type_context& context,
   scalar_type scalar
 )
-    : type(type_kind::scalar),
+    : type(
+        context,
+        type_kind::scalar
+      ),
       m_scalar(scalar) {
 }
 
@@ -53,10 +70,14 @@ scalar_type scalar_type_def::scalar() const {
 }
 
 vector_type_def::vector_type_def(
+  const type_context& context,
   const type& element_type,
   std::uint32_t elements
 )
-    : type(type_kind::vector),
+    : type(
+        context,
+        type_kind::vector
+      ),
       m_element_type(&element_type),
       m_elements(elements) {
 }
@@ -70,11 +91,15 @@ std::uint32_t vector_type_def::elements() const {
 }
 
 matrix_type_def::matrix_type_def(
+  const type_context& context,
   const type& element_type,
   std::uint32_t rows,
   std::uint32_t columns
 )
-    : type(type_kind::matrix),
+    : type(
+        context,
+        type_kind::matrix
+      ),
       m_element_type(&element_type),
       m_rows(rows),
       m_columns(columns) {
@@ -110,7 +135,7 @@ std::size_t type_context::matrix_key_hash::operator()(
 
 const unknown_type& type_context::unknown() {
   if (m_unknown == nullptr) {
-    m_unknown = std::make_unique<unknown_type>();
+    m_unknown = std::unique_ptr<unknown_type>(new unknown_type(*this));
   }
 
   return *m_unknown;
@@ -123,7 +148,8 @@ const scalar_type_def& type_context::scalar(
     return *iter->second;
   }
 
-  const auto inserted = m_scalars.emplace(scalar, std::make_unique<scalar_type_def>(scalar));
+  const auto inserted =
+    m_scalars.emplace(scalar, std::unique_ptr<scalar_type_def>(new scalar_type_def(*this, scalar)));
   return *inserted.first->second;
 }
 
@@ -131,14 +157,19 @@ const vector_type_def& type_context::vector(
   const type& element_type,
   std::uint32_t elements
 ) {
+  if (&element_type.context() != this) {
+    throw std::invalid_argument("vector element type belongs to another type_context");
+  }
+
   const vector_key key{.element_type = &element_type, .elements = elements};
 
   if (const auto iter = m_vectors.find(key); iter != m_vectors.end()) {
     return *iter->second;
   }
 
-  const auto inserted =
-    m_vectors.emplace(key, std::make_unique<vector_type_def>(element_type, elements));
+  const auto inserted = m_vectors.emplace(
+    key, std::unique_ptr<vector_type_def>(new vector_type_def(*this, element_type, elements))
+  );
   return *inserted.first->second;
 }
 
@@ -147,14 +178,19 @@ const matrix_type_def& type_context::matrix(
   std::uint32_t rows,
   std::uint32_t columns
 ) {
+  if (&element_type.context() != this) {
+    throw std::invalid_argument("matrix element type belongs to another type_context");
+  }
+
   const matrix_key key{.element_type = &element_type, .rows = rows, .columns = columns};
 
   if (const auto iter = m_matrices.find(key); iter != m_matrices.end()) {
     return *iter->second;
   }
 
-  const auto inserted =
-    m_matrices.emplace(key, std::make_unique<matrix_type_def>(element_type, rows, columns));
+  const auto inserted = m_matrices.emplace(
+    key, std::unique_ptr<matrix_type_def>(new matrix_type_def(*this, element_type, rows, columns))
+  );
   return *inserted.first->second;
 }
 

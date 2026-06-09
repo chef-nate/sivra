@@ -3,6 +3,22 @@
 
 #include <doctest/doctest.h>
 
+#include <stdexcept>
+#include <type_traits>
+
+static_assert(
+  !std::is_copy_constructible_v<sivra::ir::type_context>
+);
+static_assert(
+  !std::is_move_constructible_v<sivra::ir::type_context>
+);
+static_assert(
+  !std::is_copy_assignable_v<sivra::ir::type_context>
+);
+static_assert(
+  !std::is_move_assignable_v<sivra::ir::type_context>
+);
+
 TEST_CASE(
   "type_context reuses scalar types"
 ) {
@@ -57,4 +73,40 @@ TEST_CASE(
   CHECK(&lhs.element_type() == &f32);
   CHECK(lhs.rows() == 4);
   CHECK(lhs.columns() == 1);
+}
+
+TEST_CASE(
+  "types report their owning type_context"
+) {
+  sivra::ir::type_context types;
+
+  const auto& unknown = types.unknown();
+  const auto& scalar = types.scalar(sivra::ir::scalar_type::f32);
+  const auto& vector = types.vector(scalar, 4);
+  const auto& matrix = types.matrix(scalar, 2, 2);
+
+  CHECK(&unknown.context() == &types);
+  CHECK(&scalar.context() == &types);
+  CHECK(&vector.context() == &types);
+  CHECK(&matrix.context() == &types);
+}
+
+TEST_CASE(
+  "type_context rejects vector elements from another context"
+) {
+  sivra::ir::type_context types;
+  sivra::ir::type_context foreign_types;
+  const auto& foreign_f32 = foreign_types.scalar(sivra::ir::scalar_type::f32);
+
+  CHECK_THROWS_AS(types.vector(foreign_f32, 4), std::invalid_argument);
+}
+
+TEST_CASE(
+  "type_context rejects matrix elements from another context"
+) {
+  sivra::ir::type_context types;
+  sivra::ir::type_context foreign_types;
+  const auto& foreign_f32 = foreign_types.scalar(sivra::ir::scalar_type::f32);
+
+  CHECK_THROWS_AS(types.matrix(foreign_f32, 2, 2), std::invalid_argument);
 }

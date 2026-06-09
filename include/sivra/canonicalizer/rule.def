@@ -1,0 +1,10 @@
+/**
+ * @file rule.def
+ * @brief Canonicalizer rule list used to generate public rule metadata and the
+ * private rule pipeline.
+ *
+ * Each entry is:
+ * SIVRA_CANONICALIZER_RULE(name, bit_value, enabled_by_default)
+ */
+SIVRA_CANONICALIZER_RULE(identity_elimination, 1u << 0, true)
+SIVRA_CANONICALIZER_RULE(annihilator_collapse, 1u << 1, true)

@@ -3,9 +3,12 @@ add_library(sivra::ir ALIAS sivra-ir)
 
 target_sources(sivra-ir
   PRIVATE
+    ir/builtins/operations.cpp
+    ir/constant.cpp
     ir/expression_graph.cpp
     ir/expression_node.cpp
     ir/id.cpp
+    ir/ir_context.cpp
     ir/operation.cpp
     ir/operation_registry.cpp
     ir/type.cpp
@@ -25,6 +28,7 @@ target_sources(sivra-canonicalizer
   PRIVATE
     canonicalizer/engine.cpp
     canonicalizer/options.cpp
+    canonicalizer/rules.cpp
 )
 
 target_include_directories(sivra-canonicalizer

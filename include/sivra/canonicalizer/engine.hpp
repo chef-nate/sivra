@@ -4,7 +4,6 @@
 #include "result.hpp"
 
 #include <sivra/ir/expression_graph.hpp>
-#include <sivra/ir/operation_registry.hpp>
 
 #include <span>
 
@@ -17,10 +16,9 @@ namespace sivra::canonicalizer {
 class engine {
 public:
   /**
-   * @brief Creates an engine using operation definitions from the given registry.
+   * @brief Creates an engine with the given canonicalization options.
    */
   explicit engine(
-    const ir::operation_registry& operations,
     options config = {}
   );
 
@@ -39,11 +37,6 @@ public:
   engine& operator=(
     engine&&
   ) = delete;
-
-  /**
-   * @brief Returns the operation registry used by this engine.
-   */
-  [[nodiscard]] const ir::operation_registry& operations() const;
 
   /**
    * @brief Returns the options used by this engine.
@@ -70,7 +63,6 @@ public:
   ) const;
 
 private:
-  const ir::operation_registry& m_operations;
   options m_options;
 };
 
