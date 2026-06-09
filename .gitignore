@@ -3,5 +3,4 @@ bin/
 build/
 docs/doxygen/
 docs/ai/
-docs/architecture.md
 AGENTS.md

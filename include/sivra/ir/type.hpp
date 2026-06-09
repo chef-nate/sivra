@@ -172,6 +172,9 @@ public:
 
   /**
    * @brief Returns a vector type with the requested element type and element count.
+   *
+   * @throws std::invalid_argument if element_type is not a scalar type owned by
+   * this context.
    */
   const vector_type_def& vector(
     const type& element_type,
@@ -180,6 +183,9 @@ public:
 
   /**
    * @brief Returns a matrix type with the requested element type and shape.
+   *
+   * @throws std::invalid_argument if element_type is not a scalar type owned by
+   * this context.
    */
   const matrix_type_def& matrix(
     const type& element_type,

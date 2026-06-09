@@ -230,8 +230,9 @@ sivra::canonicalizer::rewrite_result apply_annihilator_collapse(
 }
 
 const std::array rule_entries{
-#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default)                                  \
-  sivra::canonicalizer::rule_entry{sivra::canonicalizer::rule::name, #name, apply_##name},
+#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default, description)                     \
+  sivra::canonicalizer::rule_entry{                                                                \
+    sivra::canonicalizer::rule::name, #name, description, apply_##name},
 #include <sivra/canonicalizer/rule.def>
 #undef SIVRA_CANONICALIZER_RULE
 };

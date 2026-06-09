@@ -5,11 +5,15 @@ target_sources(sivra-unittests
     canonicalizer/algebraic_rules_tests.cpp
     canonicalizer/engine_context_tests.cpp
     canonicalizer/engine_rebuild_tests.cpp
+    canonicalizer/options_tests.cpp
     canonicalizer/rule_pipeline_tests.cpp
+    canonicalizer/typed_algebraic_rules_tests.cpp
     ir/builtin_operations_tests.cpp
+    ir/expression_graph_child_tests.cpp
     ir/expression_graph_context_tests.cpp
     ir/expression_graph_type_tests.cpp
     ir/ir_context_tests.cpp
+    ir/operation_registry_tests.cpp
     ir/type_context_tests.cpp
     main.cpp
     support/expression_format.cpp

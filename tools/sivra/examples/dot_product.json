@@ -1,0 +1,22 @@
+{
+  "format":"simd-decompiler.raw-expression-dag.v1",
+  "root":14,
+  "output":{"register":"xmm0","lane":0},
+  "nodes":[
+    {"id":0,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rsi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":3,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":1,"byte_offset":0},"children":[]},
+    {"id":1,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rdi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":3,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":0,"byte_offset":0},"children":[]},
+    {"id":2,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":0},{"role":"rhs","id":1}]},
+    {"id":3,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rsi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":1,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":1,"byte_offset":0},"children":[]},
+    {"id":4,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rdi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":1,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":0,"byte_offset":0},"children":[]},
+    {"id":5,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":3},{"role":"rhs","id":4}]},
+    {"id":6,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":2},{"role":"rhs","id":5}]},
+    {"id":7,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rsi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":2,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":1,"byte_offset":0},"children":[]},
+    {"id":8,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rdi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":2,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":0,"byte_offset":0},"children":[]},
+    {"id":9,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":7},{"role":"rhs","id":8}]},
+    {"id":10,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rsi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":1,"byte_offset":0},"children":[]},
+    {"id":11,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":128,"base":"rdi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":{"object":0,"byte_offset":0},"children":[]},
+    {"id":12,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":10},{"role":"rhs","id":11}]},
+    {"id":13,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":9},{"role":"rhs","id":12}]},
+    {"id":14,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":6},{"role":"rhs","id":13}]}
+  ]
+}

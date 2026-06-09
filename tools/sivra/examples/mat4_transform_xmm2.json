@@ -1,0 +1,20 @@
+{
+  "format":"simd-decompiler.raw-expression-dag.v1",
+  "root":12,
+  "output":{"register":"xmm2","lane":0},
+  "nodes":[
+    {"id":0,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":64,"base":"rdi","index":"unknown","scale":1,"displacement":36,"symbol":""},"memory_lane":1,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":1,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":64,"base":"rsi","index":"unknown","scale":1,"displacement":4,"symbol":""},"memory_lane":1,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":2,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":0},{"role":"rhs","id":1}]},
+    {"id":3,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":32,"base":"rsi","index":"unknown","scale":1,"displacement":0,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":4,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":32,"base":"rdi","index":"unknown","scale":1,"displacement":32,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":5,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":3},{"role":"rhs","id":4}]},
+    {"id":6,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":64,"base":"rdi","index":"unknown","scale":1,"displacement":36,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":7,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":64,"base":"rsi","index":"unknown","scale":1,"displacement":4,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":8,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"multiply","children":[{"role":"lhs","id":6},{"role":"rhs","id":7}]},
+    {"id":9,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":5},{"role":"rhs","id":8}]},
+    {"id":10,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":2},{"role":"rhs","id":9}]},
+    {"id":11,"kind":"memory_load","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"memory":{"size_bits":32,"base":"rdi","index":"unknown","scale":1,"displacement":44,"symbol":""},"memory_lane":0,"element_bits":32,"source_operand_index":1,"memory_provenance":null,"children":[]},
+    {"id":12,"kind":"binary","type":{"scalar":"floating_point","element_bits":32,"lane_count":1},"operation":"add","children":[{"role":"lhs","id":10},{"role":"rhs","id":11}]}
+  ]
+}

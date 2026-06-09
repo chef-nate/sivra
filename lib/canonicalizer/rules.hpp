@@ -68,6 +68,7 @@ using apply_rule_fn = rewrite_result (*)(
 struct rule_entry {
   rule id;
   std::string_view name;
+  std::string_view description;
   apply_rule_fn apply;
 };
 

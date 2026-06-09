@@ -11,6 +11,15 @@
 namespace sivra::ir {
 
 /**
+ * @struct operation_registration
+ * @brief Describes an operation to add to an operation_registry.
+ */
+struct operation_registration {
+  std::string name;
+  operation_semantics semantics;
+};
+
+/**
  * @class operation_registry
  * @brief Owns operation definitions and assigns operation_id values.
  *
@@ -19,6 +28,19 @@ namespace sivra::ir {
  */
 class operation_registry {
 public:
+  /**
+   * @brief Atomically registers a batch of operation definitions.
+   *
+   * The returned operation_id values correspond to registrations in input
+   * order. If registration fails, the registry remains unchanged.
+   *
+   * @param registrations Operation definitions to register.
+   * @return Assigned operation_id values in input order.
+   */
+  std::vector<operation_id> register_operations(
+    std::span<const operation_registration> registrations
+  );
+
   /**
    * @brief Registers a new operation definition.
    *

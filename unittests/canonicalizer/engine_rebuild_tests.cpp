@@ -9,6 +9,7 @@
 #include <array>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -118,4 +119,49 @@ TEST_CASE(
   CHECK(&rebuilt_left.result_type() == &fixture.f32());
   CHECK(&rebuilt_right.result_type() == &fixture.f32());
   CHECK(&result.graph.at(rebuilt_left.children()[0]).result_type() == &fixture.f32());
+}
+
+TEST_CASE(
+  "canonicalizer engine rejects an invalid root identifier"
+) {
+  graph_fixture fixture;
+  static_cast<void>(fixture.add_symbol("x"));
+
+  const sivra::canonicalizer::engine engine;
+
+  CHECK_THROWS_AS(
+    static_cast<void>(engine.canonicalize(fixture.graph, sivra::ir::node_id(1))), std::out_of_range
+  );
+}
+
+TEST_CASE(
+  "canonicalizer engine preserves duplicate roots"
+) {
+  graph_fixture fixture;
+  const auto root = fixture.add_symbol("x");
+  const std::array roots{root, root};
+
+  const sivra::canonicalizer::engine engine;
+  const auto result =
+    engine.canonicalize(fixture.graph, std::span<const sivra::ir::node_id>(roots));
+
+  REQUIRE(result.roots.size() == 2);
+  CHECK(result.roots[0] == result.roots[1]);
+  CHECK(result.graph.size() == 1);
+}
+
+TEST_CASE(
+  "canonicalizer engine accepts an empty root span"
+) {
+  graph_fixture fixture;
+  static_cast<void>(fixture.add_symbol("unrequested"));
+  const std::array<sivra::ir::node_id, 0> roots{};
+
+  const sivra::canonicalizer::engine engine;
+  const auto result =
+    engine.canonicalize(fixture.graph, std::span<const sivra::ir::node_id>(roots));
+
+  CHECK(result.roots.empty());
+  CHECK(result.graph.size() == 0);
+  CHECK(&result.graph.context() == &fixture.context);
 }

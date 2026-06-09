@@ -161,6 +161,10 @@ const vector_type_def& type_context::vector(
     throw std::invalid_argument("vector element type belongs to another type_context");
   }
 
+  if (element_type.kind() != type_kind::scalar) {
+    throw std::invalid_argument("vector element type must be scalar");
+  }
+
   const vector_key key{.element_type = &element_type, .elements = elements};
 
   if (const auto iter = m_vectors.find(key); iter != m_vectors.end()) {
@@ -180,6 +184,10 @@ const matrix_type_def& type_context::matrix(
 ) {
   if (&element_type.context() != this) {
     throw std::invalid_argument("matrix element type belongs to another type_context");
+  }
+
+  if (element_type.kind() != type_kind::scalar) {
+    throw std::invalid_argument("matrix element type must be scalar");
   }
 
   const matrix_key key{.element_type = &element_type, .rows = rows, .columns = columns};

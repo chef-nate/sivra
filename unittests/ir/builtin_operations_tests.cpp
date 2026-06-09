@@ -77,3 +77,20 @@ TEST_CASE(
     static_cast<void>(sivra::ir::register_builtin_operations(operations)), std::invalid_argument
   );
 }
+
+TEST_CASE(
+  "register_builtin_operations rejects a late conflict atomically"
+) {
+  sivra::ir::operation_registry operations;
+  const auto existing = operations.register_operation("multiply");
+
+  CHECK_THROWS_AS(
+    static_cast<void>(sivra::ir::register_builtin_operations(operations)), std::invalid_argument
+  );
+  CHECK(operations.operations().size() == 1);
+  CHECK(operations.at("multiply").id() == existing);
+  CHECK(!operations.contains("constant"));
+  CHECK(!operations.contains("symbol"));
+  CHECK(!operations.contains("memory_load"));
+  CHECK(!operations.contains("add"));
+}

@@ -13,7 +13,7 @@ namespace sivra::canonicalizer {
  */
 enum class rule : std::uint32_t {
   none = 0, ///< No canonicalization rules.
-#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default) name = value,
+#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default, description) name = value,
 #include "rule.def"
 #undef SIVRA_CANONICALIZER_RULE
 };
@@ -53,7 +53,7 @@ constexpr rule operator~(
 [[nodiscard]] constexpr rule default_enabled_rules() {
   auto enabled = rule::none;
 
-#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default)                                  \
+#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default, description)                     \
   if constexpr (enabled_by_default) {                                                              \
     enabled = enabled | rule::name;                                                                \
   }

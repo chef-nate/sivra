@@ -11,6 +11,8 @@ namespace sivra::canonicalizer {
  * @brief Holds the result of canonicalizing one or more root expressions.
  *
  * roots preserve the order of the input root span passed to engine::canonicalize().
+ * The graph references operations and types owned by the source graph's
+ * ir_context, which must outlive this result.
  */
 struct result {
   ir::expression_graph graph;
@@ -20,6 +22,9 @@ struct result {
 /**
  * @struct single_result
  * @brief Holds the result of canonicalizing one root expression.
+ *
+ * The graph references operations and types owned by the source graph's
+ * ir_context, which must outlive this result.
  */
 struct single_result {
   ir::expression_graph graph;

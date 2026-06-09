@@ -36,6 +36,15 @@ node_id expression_graph::add_node(
     }
   }
 
+  const auto next_id = m_nodes.size();
+  for (const auto child : children) {
+    if (child.value() >= next_id) {
+      throw std::invalid_argument(
+        "expression_graph child must refer to an existing node"
+      );
+    }
+  }
+
   // std::vector::size() may exceed uint32_t on 64-bit targets, so check before
   // narrowing the size into a node_id.
   if (m_nodes.size() > std::numeric_limits<std::uint32_t>::max()) {

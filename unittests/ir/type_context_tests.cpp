@@ -20,6 +20,18 @@ static_assert(
 );
 
 TEST_CASE(
+  "type_context reuses the unknown type"
+) {
+  sivra::ir::type_context types;
+
+  const auto& lhs = types.unknown();
+  const auto& rhs = types.unknown();
+
+  CHECK(&lhs == &rhs);
+  CHECK(lhs.kind() == sivra::ir::type_kind::unknown);
+}
+
+TEST_CASE(
   "type_context reuses scalar types"
 ) {
   sivra::ir::type_context types;
@@ -109,4 +121,30 @@ TEST_CASE(
   const auto& foreign_f32 = foreign_types.scalar(sivra::ir::scalar_type::f32);
 
   CHECK_THROWS_AS(types.matrix(foreign_f32, 2, 2), std::invalid_argument);
+}
+
+TEST_CASE(
+  "type_context rejects non-scalar vector element types"
+) {
+  sivra::ir::type_context types;
+  const auto& f32 = types.scalar(sivra::ir::scalar_type::f32);
+  const auto& vector = types.vector(f32, 4);
+  const auto& matrix = types.matrix(f32, 2, 2);
+
+  CHECK_THROWS_AS(types.vector(types.unknown(), 4), std::invalid_argument);
+  CHECK_THROWS_AS(types.vector(vector, 4), std::invalid_argument);
+  CHECK_THROWS_AS(types.vector(matrix, 4), std::invalid_argument);
+}
+
+TEST_CASE(
+  "type_context rejects non-scalar matrix element types"
+) {
+  sivra::ir::type_context types;
+  const auto& f32 = types.scalar(sivra::ir::scalar_type::f32);
+  const auto& vector = types.vector(f32, 4);
+  const auto& matrix = types.matrix(f32, 2, 2);
+
+  CHECK_THROWS_AS(types.matrix(types.unknown(), 2, 2), std::invalid_argument);
+  CHECK_THROWS_AS(types.matrix(vector, 2, 2), std::invalid_argument);
+  CHECK_THROWS_AS(types.matrix(matrix, 2, 2), std::invalid_argument);
 }

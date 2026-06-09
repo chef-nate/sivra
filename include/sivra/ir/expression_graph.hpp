@@ -15,6 +15,7 @@ namespace sivra::ir {
  *
  * expression_graph stores the nodes that make up an expression DAG. Nodes are
  * inserted into the graph and then referenced by node_id rather than by pointer.
+ * The graph does not own its ir_context; the context must outlive the graph.
  */
 class expression_graph {
 public:
@@ -35,6 +36,11 @@ public:
    * @param children Child expression nodes referenced by id.
    * @param leaf_value Optional leaf_type_t value associated with the new node.
    * @return Stable id assigned to the inserted node.
+   * @throws std::out_of_range if operation is not registered in the graph context.
+   * @throws std::invalid_argument if result_type belongs to another context, a
+   * constant value does not match result_type, or a child does not identify an
+   * existing node in this graph.
+   * @throws std::length_error if the node_id capacity is exhausted.
    */
   node_id add_node(
     operation_id operation,
