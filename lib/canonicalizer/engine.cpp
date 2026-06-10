@@ -25,7 +25,7 @@ public:
   )
       : m_source(source),
         m_options(config),
-        m_rebuilt(source.context()),
+        m_rebuilt(source.shared_catalogue()),
         m_copied(source.size()),
         m_states(
           source.size(),
@@ -35,10 +35,8 @@ public:
   sivra::ir::node_id copy(
     sivra::ir::node_id source_id
   ) {
-    const auto index = source_id.value();
-    if (index >= m_source.size()) {
-      throw std::out_of_range("node_id not in expression_graph");
-    }
+    const auto& source_node = m_source.at(source_id);
+    const auto index = source_id.index();
 
     if (m_copied[index].has_value()) {
       return *m_copied[index];
@@ -51,7 +49,6 @@ public:
 
     m_states[index] = visit_state::visiting;
 
-    const auto& source_node = m_source.at(source_id);
     auto copied_children = copy_children(source_node);
 
     // store the canonical result for this source node.
@@ -69,8 +66,8 @@ private:
     const sivra::ir::expression_node& source_node
   ) {
     std::vector<sivra::ir::node_id> copied_children;
-    copied_children.reserve(source_node.children().size());
-    for (const auto child : source_node.children()) {
+    copied_children.reserve(source_node.operands().size());
+    for (const auto child : source_node.operands()) {
       copied_children.push_back(copy(child));
     }
 
@@ -82,6 +79,10 @@ private:
     std::vector<sivra::ir::node_id> copied_children
   ) {
     sivra::canonicalizer::rewrite_context context(m_rebuilt, m_options);
+    if (source_node.get_if_operation() == nullptr) {
+      return context.copy_node(source_node, std::move(copied_children));
+    }
+
     for (const auto& entry : sivra::canonicalizer::rule_pipeline()) {
       if (!m_options.is_rule_enabled(entry.id)) {
         continue;

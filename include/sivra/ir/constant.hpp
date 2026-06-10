@@ -1,6 +1,6 @@
 #pragma once
 
-#include "type.hpp"
+#include "value_type.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,10 +9,6 @@
 
 namespace sivra::ir {
 
-/**
- * @struct f32_constant
- * @brief Stores the exact bit representation of an f32 constant.
- */
 struct f32_constant {
   std::uint32_t bits;
 
@@ -21,16 +17,11 @@ struct f32_constant {
   );
 
   float value() const;
-
   bool operator==(
     const f32_constant&
   ) const = default;
 };
 
-/**
- * @struct i32_constant
- * @brief Stores the exact bit representation of an i32 constant.
- */
 struct i32_constant {
   std::uint32_t bits;
 
@@ -39,39 +30,31 @@ struct i32_constant {
   );
 
   std::int32_t value() const;
-
   bool operator==(
     const i32_constant&
   ) const = default;
 };
 
-/**
- * @brief Exact value of one scalar constant element.
- */
 using scalar_constant_t = std::variant<f32_constant, i32_constant>;
 
-/**
- * @class constant_value
- * @brief Represents a typed scalar, splat, or aggregate constant.
- */
 class constant_value {
 public:
   static constant_value scalar(
-    const scalar_type_def& result_type,
+    value_type result_type,
     scalar_constant_t value
   );
 
   static constant_value splat(
-    const type& result_type,
+    value_type result_type,
     scalar_constant_t element
   );
 
   static constant_value aggregate(
-    const type& result_type,
+    value_type result_type,
     std::vector<scalar_constant_t> elements
   );
 
-  const type& result_type() const;
+  const value_type& result_type() const;
   std::size_t element_count() const;
   bool is_splat() const;
 
@@ -79,16 +62,20 @@ public:
     std::size_t index
   ) const;
 
+  bool operator==(
+    const constant_value&
+  ) const = default;
+
 private:
   constant_value(
-    const type& result_type,
+    value_type result_type,
     std::variant<
       scalar_constant_t,
       std::vector<scalar_constant_t>
     > storage
   );
 
-  const type* m_result_type;
+  value_type m_result_type;
   std::variant<scalar_constant_t, std::vector<scalar_constant_t>> m_storage;
 };
 

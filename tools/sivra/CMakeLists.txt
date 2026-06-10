@@ -1,4 +1,4 @@
-set(SIVRA_EXAMPLE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+set(SIVRA_EXAMPLE_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/fixtures/raw-expression-v1)
 
 set(SIVRA_EXAMPLE_FILES
   ${SIVRA_EXAMPLE_DIRECTORY}/dot_product.json
@@ -34,7 +34,6 @@ configure_file(
 add_executable(sivra
   ${CMAKE_CURRENT_BINARY_DIR}/embedded_examples.cpp
   main.cpp
-  raw_expression_json.cpp
 )
 
 target_include_directories(sivra
@@ -44,7 +43,17 @@ target_include_directories(sivra
 
 target_link_libraries(sivra
   PRIVATE
+    sivra-compat-raw-expression-json
     sivra::canonicalizer
     CLI11::CLI11
-    nlohmann_json::nlohmann_json
+)
+
+target_compile_features(sivra
+  PRIVATE
+    cxx_std_23
+)
+
+set_target_properties(sivra
+  PROPERTIES
+    CXX_EXTENSIONS OFF
 )

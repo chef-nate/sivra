@@ -1,20 +1,29 @@
 #include <sivra/ir/builtins/operations.hpp>
 
-#include <sivra/ir/operation.hpp>
-
 #include <array>
+#include <utility>
 
 namespace sivra::ir {
 
-builtin_operation_ids register_builtin_operations(
-  operation_registry& operations
+core::result_t<builtin_operation_ids> register_builtin_operations(
+  operation_catalogue_builder& builder
 ) {
+  const operation_signature variadic_same_type{
+    .minimum_operands = 2,
+    .maximum_operands = std::nullopt,
+    .operands_match_result = true,
+  };
+  const operation_signature binary_same_type{
+    .minimum_operands = 2,
+    .maximum_operands = 2,
+    .operands_match_result = true,
+  };
+
   const std::array registrations{
-    operation_registration{.name = "constant"},
-    operation_registration{.name = "symbol"},
-    operation_registration{.name = "memory_load"},
     operation_registration{
+      .key = "add",
       .name = "add",
+      .signature = variadic_same_type,
       .semantics =
         operation_semantics{
           .traits = operation_trait::associative | operation_trait::commutative,
@@ -22,7 +31,9 @@ builtin_operation_ids register_builtin_operations(
         },
     },
     operation_registration{
+      .key = "multiply",
       .name = "multiply",
+      .signature = variadic_same_type,
       .semantics =
         operation_semantics{
           .traits = operation_trait::associative | operation_trait::commutative,
@@ -30,16 +41,28 @@ builtin_operation_ids register_builtin_operations(
           .annihilator = operation_constant{well_known_constant::zero},
         },
     },
+    operation_registration{
+      .key = "subtract",
+      .name = "subtract",
+      .signature = binary_same_type,
+    },
+    operation_registration{
+      .key = "maximum",
+      .name = "maximum",
+      .signature = binary_same_type,
+    },
   };
 
-  const auto identifiers = operations.register_operations(registrations);
+  auto identifiers = builder.register_operations(registrations);
+  if (!identifiers.has_value()) {
+    return std::unexpected(std::move(identifiers.error()));
+  }
 
   return builtin_operation_ids{
-    .constant = identifiers[0],
-    .symbol = identifiers[1],
-    .memory_load = identifiers[2],
-    .add = identifiers[3],
-    .multiply = identifiers[4],
+    .add = (*identifiers)[0],
+    .multiply = (*identifiers)[1],
+    .subtract = (*identifiers)[2],
+    .maximum = (*identifiers)[3],
   };
 }
 

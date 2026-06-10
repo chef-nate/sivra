@@ -7,51 +7,30 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <stdexcept>
+#include <utility>
 #include <variant>
 #include <vector>
 
 namespace {
 
+template <typename T>
+T value_or_throw(
+  sivra::core::result_t<T> result
+) {
+  if (!result.has_value()) {
+    const auto message =
+      result.error().empty() ? "IR graph construction failed" : result.error().front().message;
+    throw std::logic_error(message);
+  }
+  return std::move(*result);
+}
+
 const sivra::ir::constant_value* constant_leaf(
   const sivra::ir::expression_node& node
 ) {
-  if (!node.leaf_value().has_value()) {
-    return nullptr;
-  }
-
-  return std::get_if<sivra::ir::constant_value>(&*node.leaf_value());
-}
-
-const sivra::ir::scalar_type_def* scalar_element_type(
-  const sivra::ir::type& result_type
-) {
-  switch (result_type.kind()) {
-  case sivra::ir::type_kind::scalar:
-    return &static_cast<const sivra::ir::scalar_type_def&>(result_type);
-
-  case sivra::ir::type_kind::vector: {
-    const auto& element_type =
-      static_cast<const sivra::ir::vector_type_def&>(result_type).element_type();
-    if (element_type.kind() != sivra::ir::type_kind::scalar) {
-      return nullptr;
-    }
-    return &static_cast<const sivra::ir::scalar_type_def&>(element_type);
-  }
-
-  case sivra::ir::type_kind::matrix: {
-    const auto& element_type =
-      static_cast<const sivra::ir::matrix_type_def&>(result_type).element_type();
-    if (element_type.kind() != sivra::ir::type_kind::scalar) {
-      return nullptr;
-    }
-    return &static_cast<const sivra::ir::scalar_type_def&>(element_type);
-  }
-
-  case sivra::ir::type_kind::unknown:
-    return nullptr;
-  }
-
-  return nullptr;
+  const auto* constant = node.get_if_constant();
+  return constant == nullptr ? nullptr : &constant->value;
 }
 
 bool matches_well_known_constant(
@@ -78,10 +57,10 @@ bool matches_well_known_constant(
 bool matches_operation_constant(
   const sivra::ir::scalar_constant_t& actual,
   const sivra::ir::operation_constant& expected,
-  const sivra::ir::type& result_type
+  const sivra::ir::value_type& result_type
 ) {
-  const auto* element_type = scalar_element_type(result_type);
-  if (element_type == nullptr) {
+  if (result_type.kind() != sivra::ir::value_type_kind::scalar &&
+      result_type.kind() != sivra::ir::value_type_kind::vector) {
     return false;
   }
 
@@ -90,9 +69,11 @@ bool matches_operation_constant(
   }
 
   const auto& explicit_value = std::get<sivra::ir::scalar_constant_t>(expected.element);
-  const bool matches_type = (element_type->scalar() == sivra::ir::scalar_type::f32 &&
+  const bool matches_type = (result_type.category() == sivra::ir::scalar_category::floating_point &&
+                             result_type.element_bit_width() == 32 &&
                              std::holds_alternative<sivra::ir::f32_constant>(explicit_value)) ||
-                            (element_type->scalar() == sivra::ir::scalar_type::i32 &&
+                            (result_type.category() == sivra::ir::scalar_category::signed_integer &&
+                             result_type.element_bit_width() == 32 &&
                              std::holds_alternative<sivra::ir::i32_constant>(explicit_value));
 
   if (!matches_type) {
@@ -107,12 +88,12 @@ bool constant_operand_matches(
   const sivra::ir::expression_node& child_node,
   const sivra::ir::operation_constant& expected
 ) {
-  if (&source_node.result_type() != &child_node.result_type()) {
+  if (source_node.result_type() != child_node.result_type()) {
     return false;
   }
 
   const auto* constant = constant_leaf(child_node);
-  if (constant == nullptr || &constant->result_type() != &source_node.result_type()) {
+  if (constant == nullptr || constant->result_type() != source_node.result_type()) {
     return false;
   }
 
@@ -149,8 +130,11 @@ bool is_flattenable_associative_child(
   const sivra::ir::expression_node& parent,
   const sivra::ir::expression_node& child
 ) {
-  return child.operation() == parent.operation() && &child.result_type() == &parent.result_type() &&
-         child.children().size() >= 2 && !child.leaf_value().has_value();
+  const auto* parent_application = parent.get_if_operation();
+  const auto* child_application = child.get_if_operation();
+  return parent_application != nullptr && child_application != nullptr &&
+         child_application->operation == parent_application->operation &&
+         child.result_type() == parent.result_type() && child.operands().size() >= 2;
 }
 
 std::optional<sivra::ir::node_id> remove_identity_operands(
@@ -198,7 +182,7 @@ sivra::canonicalizer::rewrite_result apply_associative_flattening(
       continue;
     }
 
-    flattened.insert(flattened.end(), child_node.children().begin(), child_node.children().end());
+    flattened.insert(flattened.end(), child_node.operands().begin(), child_node.operands().end());
     changed = true;
   }
 
@@ -290,6 +274,7 @@ rewrite_context::rewrite_context(
   const options& config
 )
     : m_rebuilt(rebuilt),
+      m_builder(rebuilt),
       m_options(config) {
 }
 
@@ -302,7 +287,11 @@ bool rewrite_context::is_trait_enabled(
 const ir::operation_def& rewrite_context::operation_for(
   const ir::expression_node& source_node
 ) const {
-  return m_rebuilt.context().operations().at(source_node.operation());
+  const auto* application = source_node.get_if_operation();
+  if (application == nullptr) {
+    throw std::logic_error("canonicalizer rule requires an operation node");
+  }
+  return m_rebuilt.catalogue().operation(application->operation);
 }
 
 const ir::expression_node& rewrite_context::rebuilt_node(
@@ -315,11 +304,27 @@ ir::node_id rewrite_context::copy_node(
   const ir::expression_node& source_node,
   std::vector<ir::node_id> copied_children
 ) {
-  return m_rebuilt.add_node(
-    source_node.operation(),
-    source_node.result_type(),
-    std::move(copied_children),
-    source_node.leaf_value()
+  if (const auto* constant = source_node.get_if_constant()) {
+    return value_or_throw(m_builder.make_constant(constant->value));
+  }
+  if (const auto* symbol = source_node.get_if_symbol()) {
+    return value_or_throw(m_builder.make_symbol(symbol->name, source_node.result_type()));
+  }
+  if (const auto* external = source_node.get_if_external_value()) {
+    return value_or_throw(
+      m_builder.make_external_value(external->value, source_node.result_type())
+    );
+  }
+  if (const auto* unknown = source_node.get_if_unknown()) {
+    return value_or_throw(m_builder.make_unknown(unknown->reason, source_node.result_type()));
+  }
+
+  const auto* application = source_node.get_if_operation();
+  if (application == nullptr) {
+    throw std::logic_error("unsupported expression node kind");
+  }
+  return value_or_throw(
+    m_builder.apply(application->operation, copied_children, source_node.result_type())
   );
 }
 

@@ -7,41 +7,56 @@ project(
   LANGUAGES CXX
 )
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-
 include(FetchContent)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include(CTest)
 
-FetchContent_Declare(
-  cli11
-  GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-  GIT_TAG v2.6.2
+option(SIVRA_BUILD_CLI "Build the SIVRA command-line tool" ${PROJECT_IS_TOP_LEVEL})
+option(
+  SIVRA_BUILD_COMPAT_IMPORTERS
+  "Build compatibility importers for legacy artifacts"
+  ON
 )
 
-FetchContent_MakeAvailable(cli11)
+if(SIVRA_BUILD_CLI)
+  FetchContent_Declare(
+    cli11
+    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+    GIT_TAG v2.6.2
+  )
 
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.12.0
-)
+  FetchContent_MakeAvailable(cli11)
+endif()
 
-FetchContent_MakeAvailable(nlohmann_json)
+if(SIVRA_BUILD_COMPAT_IMPORTERS)
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.12.0
+  )
 
-FetchContent_Declare(
-  doctest
-  GIT_REPOSITORY https://github.com/doctest/doctest.git
-  GIT_TAG v2.4.12
-)
+  FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
-FetchContent_MakeAvailable(doctest)
+if(BUILD_TESTING)
+  FetchContent_Declare(
+    doctest
+    GIT_REPOSITORY https://github.com/doctest/doctest.git
+    GIT_TAG v2.4.12
+  )
 
-enable_testing()
+  FetchContent_MakeAvailable(doctest)
+endif()
 
 add_subdirectory(lib)
-add_subdirectory(tools/sivra)
-add_subdirectory(unittests)
+
+if(SIVRA_BUILD_CLI)
+  if(NOT SIVRA_BUILD_COMPAT_IMPORTERS)
+    message(FATAL_ERROR "SIVRA_BUILD_CLI currently requires SIVRA_BUILD_COMPAT_IMPORTERS")
+  endif()
+
+  add_subdirectory(tools/sivra)
+endif()
+
+if(BUILD_TESTING)
+  add_subdirectory(tests)
+endif()

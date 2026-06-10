@@ -1,13 +1,12 @@
 #include "embedded_examples.hpp"
-#include "raw_expression_json.hpp"
+
+#include <raw_expression_json.hpp>
 
 #include <sivra/canonicalizer/engine.hpp>
 #include <sivra/ir/constant.hpp>
 #include <sivra/ir/expression_graph.hpp>
 #include <sivra/ir/leaf.hpp>
-#include <sivra/ir/operation_registry.hpp>
-#include <sivra/ir/scalar_type.hpp>
-#include <sivra/ir/type.hpp>
+#include <sivra/ir/value_type.hpp>
 
 #include <CLI/CLI.hpp>
 
@@ -16,6 +15,8 @@
 #include <cstdlib>
 #include <exception>
 #include <print>
+#include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -34,7 +35,7 @@ std::string display_name(
 }
 
 std::string format_memory_ref(
-  const sivra::ir::memory_ref& value
+  const sivra::compat::legacy_memory_ref& value
 ) {
   auto formatted = std::string("mem[") + value.base_register;
   if (value.offset > 0) {
@@ -46,103 +47,94 @@ std::string format_memory_ref(
   return formatted;
 }
 
-struct leaf_formatter {
-  std::string operator()(
-    const sivra::ir::memory_ref& value
-  ) const {
-    return format_memory_ref(value);
+std::string_view format_scalar_category(
+  sivra::ir::scalar_category category
+) {
+  switch (category) {
+  case sivra::ir::scalar_category::floating_point:
+    return "f";
+  case sivra::ir::scalar_category::signed_integer:
+    return "i";
+  case sivra::ir::scalar_category::unsigned_integer:
+    return "u";
+  case sivra::ir::scalar_category::unknown:
+    return "unknown";
   }
+  return "unknown";
+}
 
-  std::string operator()(
-    const sivra::ir::constant_value& value
-  ) const {
-    const auto format_scalar_type = [](sivra::ir::scalar_type type) {
-      switch (type) {
-      case sivra::ir::scalar_type::f32:
-        return std::string_view("f32");
-      case sivra::ir::scalar_type::i32:
-        return std::string_view("i32");
-      case sivra::ir::scalar_type::unknown:
-        return std::string_view("unknown");
-      }
-
-      return std::string_view("unknown");
-    };
-
-    const auto format_element = [](const sivra::ir::scalar_constant_t& element) {
-      return std::visit(
-        []<typename T>(const T& scalar) { return std::to_string(scalar.value()); }, element
-      );
-    };
-
-    if (value.result_type().kind() == sivra::ir::type_kind::scalar) {
-      return format_element(value.element(0));
-    }
-
-    const auto format_aggregate_type = [&](const sivra::ir::type& type) {
-      switch (type.kind()) {
-      case sivra::ir::type_kind::vector: {
-        const auto& vector = static_cast<const sivra::ir::vector_type_def&>(type);
-        const auto& element = static_cast<const sivra::ir::scalar_type_def&>(vector.element_type());
-        return "vec<" + std::string(format_scalar_type(element.scalar())) + ", " +
-               std::to_string(vector.elements()) + ">";
-      }
-
-      case sivra::ir::type_kind::matrix: {
-        const auto& matrix = static_cast<const sivra::ir::matrix_type_def&>(type);
-        const auto& element = static_cast<const sivra::ir::scalar_type_def&>(matrix.element_type());
-        return "matrix<" + std::string(format_scalar_type(element.scalar())) + ", " +
-               std::to_string(matrix.rows()) + "x" + std::to_string(matrix.columns()) + ">";
-      }
-
-      case sivra::ir::type_kind::unknown:
-      case sivra::ir::type_kind::scalar:
-        return std::string();
-      }
-
-      return std::string();
-    };
-
-    const auto type = format_aggregate_type(value.result_type());
-    if (value.is_splat()) {
-      return type + "(" + format_element(value.element(0)) + ")";
-    }
-
-    auto formatted = type + "{";
-    for (std::size_t index = 0; index < value.element_count(); ++index) {
-      if (index != 0) {
-        formatted += ", ";
-      }
-      formatted += format_element(value.element(index));
-    }
-    formatted += "}";
-    return formatted;
+std::string format_value_type(
+  const sivra::ir::value_type& type
+) {
+  if (type.kind() == sivra::ir::value_type_kind::unknown) {
+    return "unknown";
   }
-
-  std::string operator()(
-    const sivra::ir::symbol_ref& value
-  ) const {
-    return value.name;
+  auto scalar =
+    std::string(format_scalar_category(type.category())) + std::to_string(type.element_bit_width());
+  if (type.kind() == sivra::ir::value_type_kind::vector) {
+    return "vec<" + scalar + ", " + std::to_string(type.lane_count()) + ">";
   }
-};
+  return scalar;
+}
+
+std::string format_constant(
+  const sivra::ir::constant_value& value
+) {
+  const auto format_element = [](const sivra::ir::scalar_constant_t& element) {
+    return std::visit(
+      []<typename T>(const T& scalar) { return std::to_string(scalar.value()); }, element
+    );
+  };
+
+  if (value.result_type().kind() == sivra::ir::value_type_kind::scalar) {
+    return format_element(value.element(0));
+  }
+  const auto type = format_value_type(value.result_type());
+  if (value.is_splat()) {
+    return type + "(" + format_element(value.element(0)) + ")";
+  }
+  auto formatted = type + "{";
+  for (std::size_t index = 0; index < value.element_count(); ++index) {
+    if (index != 0) {
+      formatted += ", ";
+    }
+    formatted += format_element(value.element(index));
+  }
+  formatted += "}";
+  return formatted;
+}
 
 std::string format_expression(
   const sivra::ir::expression_graph& graph,
-  sivra::ir::node_id root
+  sivra::ir::node_id root,
+  std::span<const sivra::compat::legacy_memory_ref> external_values
 ) {
   const auto& node = graph.at(root);
-  if (node.leaf_value().has_value()) {
-    return std::visit(leaf_formatter{}, *node.leaf_value());
+  if (const auto* constant = node.get_if_constant()) {
+    return format_constant(constant->value);
+  }
+  if (const auto* symbol = node.get_if_symbol()) {
+    return symbol->name;
+  }
+  if (const auto* external = node.get_if_external_value()) {
+    if (external->value.index() >= external_values.size()) {
+      throw std::out_of_range("external value metadata is missing");
+    }
+    return format_memory_ref(external_values[external->value.index()]);
+  }
+  if (const auto* unknown = node.get_if_unknown()) {
+    return "unknown(" + unknown->reason + ")";
   }
 
-  auto formatted = display_name(graph.context().operations().at(node.operation()).name()) + "(";
+  const auto& application = std::get<sivra::ir::operation_application>(node.payload());
+  auto formatted = display_name(graph.catalogue().operation(application.operation).name()) + "(";
   bool first = true;
-  for (const auto child : node.children()) {
+  for (const auto child : application.operands) {
     if (!first) {
       formatted += ", ";
     }
     first = false;
-    formatted += format_expression(graph, child);
+    formatted += format_expression(graph, child, external_values);
   }
   formatted += ")";
   return formatted;
@@ -168,11 +160,13 @@ int main(
 
   try {
     for (const auto& expression : sivra::tool::example_expressions(example)) {
-      const auto loaded = sivra::tool::parse_raw_expression_json(expression.json);
+      const auto loaded = sivra::compat::parse_raw_expression_json(expression.json);
       const sivra::canonicalizer::engine canonicalizer;
       const auto canonicalized = canonicalizer.canonicalize(loaded.graph, loaded.root);
       std::println(
-        "{}: {}", expression.output, format_expression(canonicalized.graph, canonicalized.root)
+        "{}: {}",
+        expression.output,
+        format_expression(canonicalized.graph, canonicalized.root, loaded.external_values)
       );
     }
   } catch (const std::exception& error) {

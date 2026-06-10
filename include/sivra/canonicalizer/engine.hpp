@@ -47,7 +47,7 @@ public:
    * @brief Canonicalizes one or more root expressions.
    *
    * The returned result contains a fresh graph, with roots preserving the order of
-   * the input root span. The source graph's ir_context must outlive the result.
+   * the input root span. The result shares the source operation catalogue.
    */
   [[nodiscard]] result canonicalize(
     const ir::expression_graph& graph,
@@ -57,7 +57,7 @@ public:
   /**
    * @brief Canonicalizes one root expression.
    *
-   * The source graph's ir_context must outlive the result.
+   * The result shares the source operation catalogue.
    */
   [[nodiscard]] single_result canonicalize(
     const ir::expression_graph& graph,

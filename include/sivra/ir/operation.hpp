@@ -11,20 +11,13 @@
 
 namespace sivra::ir {
 
-/**
- * @enum operation_trait
- * @brief Algebraic traits that describe operation behavior.
- */
 enum class operation_trait : std::uint32_t {
-  none = 0,              ///< No algebraic traits.
-  associative = 1u << 0, ///< Nested uses of the operation may be flattened.
-  commutative = 1u << 1, ///< Operand order does not affect the expression.
-  idempotent = 1u << 2,  ///< Repeated operands may be collapsed.
+  none = 0,
+  associative = 1u << 0,
+  commutative = 1u << 1,
+  idempotent = 1u << 2,
 };
 
-/**
- * @brief Combines operation_trait values into a trait mask.
- */
 constexpr operation_trait operator|(
   operation_trait lhs,
   operation_trait rhs
@@ -34,9 +27,6 @@ constexpr operation_trait operator|(
   );
 }
 
-/**
- * @brief Intersects operation_trait values.
- */
 constexpr operation_trait operator&(
   operation_trait lhs,
   operation_trait rhs
@@ -46,9 +36,6 @@ constexpr operation_trait operator&(
   );
 }
 
-/**
- * @brief Inverts an operation_trait mask.
- */
 constexpr operation_trait operator~(
   operation_trait value
 ) {
@@ -63,18 +50,10 @@ enum class well_known_constant {
 
 using operation_constant_value = std::variant<well_known_constant, scalar_constant_t>;
 
-/**
- * @struct operation_constant
- * @brief Describes a uniform algebraic constant for an operation.
- */
 struct operation_constant {
   operation_constant_value element;
 };
 
-/**
- * @struct operation_semantics
- * @brief Describes algebraic behavior associated with an operation.
- */
 struct operation_semantics {
   operation_trait traits = operation_trait::none;
   std::optional<operation_constant> identity;
@@ -82,55 +61,36 @@ struct operation_semantics {
   std::string notes;
 };
 
-/**
- * @class operation_def
- * @brief Describes an operation kind known to the IR.
- *
- * operation_def stores the operation's stable operation_id, display name, and
- * algebraic semantics.
- */
+struct operation_signature {
+  std::uint32_t minimum_operands = 0;
+  std::optional<std::uint32_t> maximum_operands;
+  bool operands_match_result = true;
+};
+
 class operation_def {
 public:
-  /**
-   * @brief Creates an operation definition.
-   *
-   * @param id operation_id assigned by an operation_registry.
-   * @param name Human-readable operation name.
-   * @param semantics Algebraic semantics associated with the operation.
-   */
   operation_def(
     operation_id id,
+    std::string key,
     std::string name,
+    operation_signature signature,
     operation_semantics semantics = {}
   );
 
-  /**
-   * @brief Returns the operation_id assigned to this operation.
-   */
   operation_id id() const;
-
-  /**
-   * @brief Returns the human-readable operation name.
-   */
+  std::string_view key() const;
   std::string_view name() const;
-
-  /**
-   * @brief Returns the algebraic semantics associated with this operation.
-   */
+  const operation_signature& signature() const;
   const operation_semantics& semantics() const;
-
-  /**
-   * @brief Checks whether this operation has all requested traits.
-   *
-   * Passing a combined trait mask requires every requested trait to be present.
-   */
   bool has_trait(
     operation_trait trait
   ) const;
 
 private:
   operation_id m_id;
+  std::string m_key;
   std::string m_name;
+  operation_signature m_signature;
   operation_semantics m_semantics;
 };
 

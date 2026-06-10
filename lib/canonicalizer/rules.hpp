@@ -3,8 +3,8 @@
 #include <sivra/canonicalizer/options.hpp>
 #include <sivra/ir/expression_graph.hpp>
 #include <sivra/ir/expression_node.hpp>
+#include <sivra/ir/graph_builder.hpp>
 #include <sivra/ir/operation.hpp>
-#include <sivra/ir/operation_registry.hpp>
 
 #include <optional>
 #include <span>
@@ -47,6 +47,7 @@ public:
 
 private:
   ir::expression_graph& m_rebuilt;
+  ir::graph_builder m_builder;
   const options& m_options;
 };
 

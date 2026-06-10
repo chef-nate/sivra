@@ -1,65 +1,96 @@
 #pragma once
 
+#include <sivra/core/owner_token.hpp>
+
 #include <cstdint>
 
 namespace sivra::ir {
 
-/**
- * @class operation_id
- * @brief Identifies an operation_def stored in an operation_registry.
- */
 class operation_id {
 public:
-  /**
-   * @brief Creates an operation_id from its numeric value.
-   */
-  explicit operation_id(
-    std::uint32_t value
-  );
+  static constexpr operation_id unsafe_from_index(
+    std::uint32_t index,
+    core::owner_token owner
+  ) {
+    return operation_id(index, owner);
+  }
 
-  /**
-   * @brief Returns the numeric value of this operation_id.
-   */
-  std::uint32_t value() const;
+  constexpr std::uint32_t index() const { return m_index; }
 
-  bool operator==(
+  constexpr core::owner_token owner() const { return m_owner; }
+
+  auto operator<=>(
     const operation_id&
-  ) const;
-  bool operator<(
-    const operation_id&
-  ) const;
+  ) const = default;
 
 private:
-  std::uint32_t m_value;
+  constexpr operation_id(
+    std::uint32_t index,
+    core::owner_token owner
+  )
+      : m_index(index),
+        m_owner(owner) {}
+
+  std::uint32_t m_index;
+  core::owner_token m_owner;
 };
 
-/**
- * @class node_id
- * @brief Identifies an expression_node stored in an expression_graph.
- */
 class node_id {
 public:
-  /**
-   * @brief Creates a node_id from its numeric value.
-   */
-  explicit node_id(
-    std::uint32_t value
-  );
+  static constexpr node_id unsafe_from_index(
+    std::uint32_t index,
+    core::owner_token owner
+  ) {
+    return node_id(index, owner);
+  }
 
-  /**
-   * @brief Returns the numeric value of this node_id.
-   */
-  std::uint32_t value() const;
+  constexpr std::uint32_t index() const { return m_index; }
 
-  bool operator==(
+  constexpr core::owner_token owner() const { return m_owner; }
+
+  auto operator<=>(
     const node_id&
-  ) const;
-  bool operator<(
-    const node_id&
-  ) const;
+  ) const = default;
 
 private:
-  std::uint32_t m_value;
+  constexpr node_id(
+    std::uint32_t index,
+    core::owner_token owner
+  )
+      : m_index(index),
+        m_owner(owner) {}
+
+  std::uint32_t m_index;
+  core::owner_token m_owner;
+};
+
+class external_value_id {
+public:
+  static constexpr external_value_id unsafe_from_index(
+    std::uint32_t index,
+    core::owner_token owner
+  ) {
+    return external_value_id(index, owner);
+  }
+
+  constexpr std::uint32_t index() const { return m_index; }
+
+  constexpr core::owner_token owner() const { return m_owner; }
+
+  auto operator<=>(
+    const external_value_id&
+  ) const = default;
+
+private:
+  constexpr external_value_id(
+    std::uint32_t index,
+    core::owner_token owner
+  )
+      : m_index(index),
+        m_owner(owner) {}
+
+  std::uint32_t m_index;
+  core::owner_token m_owner;
 };
 
 } // namespace sivra::ir
