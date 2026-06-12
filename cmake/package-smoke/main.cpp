@@ -1,8 +1,10 @@
 #include <sivra/canonicalizer/canonicalizer.hpp>
 #include <sivra/ir/ir.hpp>
+#include <sivra/x86/x86.hpp>
 
 #include <array>
 #include <utility>
+#include <variant>
 
 int main() {
   sivra::ir::operation_catalogue_builder catalogue_builder;
@@ -42,5 +44,39 @@ int main() {
     return 6;
   }
 
-  return result.graph.at(*result.root).get_if_symbol() == nullptr ? 7 : 0;
+  if (result.graph.at(*result.root).get_if_symbol() == nullptr) {
+    return 7;
+  }
+
+  const sivra::x86::tokenizer tokenizer;
+  const sivra::x86::parser parser;
+  const auto tokens =
+    tokenizer.tokenize(sivra::core::source_id::from_index(0), "addps xmm0, [rax]");
+  if (!tokens.has_value()) {
+    return 8;
+  }
+  const auto parsed = parser.parse(*tokens);
+  if (!parsed.has_value()) {
+    return 9;
+  }
+  const auto instructions = sivra::x86::builtin_sse1_instruction_catalogue();
+  sivra::x86::form_resolver resolver(
+    sivra::x86::builtin_register_catalogue(), instructions.catalogue
+  );
+  const auto decoded = resolver.resolve(*parsed);
+  if (!decoded.has_value() || decoded->instructions().empty()) {
+    return 10;
+  }
+  const sivra::x86::semantic_provider provider;
+  const auto semantics = provider.semantics(decoded->instructions().front());
+  if (!semantics.has_value() || semantics->effects.empty()) {
+    return 11;
+  }
+  const auto* memory_read =
+    std::get_if<sivra::program::memory_read_effect>(&semantics->effects.front());
+  if (memory_read == nullptr || memory_read->width != 128) {
+    return 12;
+  }
+
+  return 0;
 }

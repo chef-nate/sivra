@@ -85,10 +85,26 @@ add_sivra_test(sivra-canonicalizer-tests
     sivra::canonicalizer
 )
 
+add_sivra_test(sivra-program-tests
+  SOURCES
+    unit/program/program_tests.cpp
+  LIBRARIES
+    sivra::program
+)
+
+add_sivra_test(sivra-x86-tests
+  SOURCES
+    unit/x86/x86_tests.cpp
+  LIBRARIES
+    sivra::x86
+)
+
 set(sivra_unit_test_targets
   sivra-core-tests
   sivra-ir-tests
   sivra-canonicalizer-tests
+  sivra-program-tests
+  sivra-x86-tests
 )
 
 if(SIVRA_BUILD_COMPAT_IMPORTERS)

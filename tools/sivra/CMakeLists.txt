@@ -14,6 +14,7 @@ target_link_libraries(sivra
   PRIVATE
     sivra-compat-raw-expression-json
     sivra::canonicalizer
+    sivra::x86
     CLI11::CLI11
 )
 

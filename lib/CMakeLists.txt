@@ -77,6 +77,44 @@ set_target_properties(sivra-ir
 
 sivra_apply_build_options(sivra-ir)
 
+add_library(sivra-program STATIC)
+add_library(sivra::program ALIAS sivra-program)
+
+target_sources(sivra-program
+  PRIVATE
+    program/decoded_program.cpp
+    program/id.cpp
+    program/instruction_form.cpp
+    program/operand.cpp
+)
+
+target_include_directories(sivra-program
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_compile_features(sivra-program
+  PUBLIC
+    cxx_std_23
+)
+
+set_target_properties(sivra-program
+  PROPERTIES
+    CXX_EXTENSIONS OFF
+    EXPORT_NAME program
+)
+
+target_link_libraries(sivra-program
+  PUBLIC
+    sivra::core
+    sivra::ir
+)
+
+sivra_apply_build_options(sivra-program)
+
 add_library(sivra-canonicalizer STATIC)
 add_library(sivra::canonicalizer ALIAS sivra-canonicalizer)
 
@@ -125,6 +163,45 @@ target_link_libraries(sivra-canonicalizer
 )
 
 sivra_apply_build_options(sivra-canonicalizer)
+
+add_library(sivra-x86 STATIC)
+add_library(sivra::x86 ALIAS sivra-x86)
+
+target_sources(sivra-x86
+  PRIVATE
+    x86/form_resolver.cpp
+    x86/instruction_catalogue.cpp
+    x86/parser.cpp
+    x86/register_catalogue.cpp
+    x86/semantic_provider.cpp
+    x86/tokenizer.cpp
+)
+
+target_include_directories(sivra-x86
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_compile_features(sivra-x86
+  PUBLIC
+    cxx_std_23
+)
+
+set_target_properties(sivra-x86
+  PROPERTIES
+    CXX_EXTENSIONS OFF
+    EXPORT_NAME x86
+)
+
+target_link_libraries(sivra-x86
+  PUBLIC
+    sivra::program
+)
+
+sivra_apply_build_options(sivra-x86)
 
 if(SIVRA_BUILD_COMPAT_IMPORTERS)
   add_library(sivra-compat-raw-expression-json STATIC)

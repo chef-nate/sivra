@@ -7,6 +7,7 @@
 #include <sivra/ir/expression_graph.hpp>
 #include <sivra/ir/leaf.hpp>
 #include <sivra/ir/value_type.hpp>
+#include <sivra/x86/x86.hpp>
 
 #include <CLI/CLI.hpp>
 
@@ -178,6 +179,91 @@ std::string diagnostic_message(
   return diagnostics.front().message;
 }
 
+std::string_view effect_kind(
+  const sivra::program::semantic_effect& effect
+) {
+  if (std::holds_alternative<sivra::program::semantic_read>(effect)) {
+    return "read";
+  }
+  if (std::holds_alternative<sivra::program::semantic_write>(effect)) {
+    return "write";
+  }
+  if (std::holds_alternative<sivra::program::memory_read_effect>(effect)) {
+    return "memory-read";
+  }
+  if (std::holds_alternative<sivra::program::memory_write_effect>(effect)) {
+    return "memory-write";
+  }
+  if (std::holds_alternative<sivra::program::state_transition_effect>(effect)) {
+    return "state";
+  }
+  return "control";
+}
+
+std::uint32_t effect_width(
+  const sivra::program::semantic_effect& effect
+) {
+  if (const auto* read = std::get_if<sivra::program::memory_read_effect>(&effect)) {
+    return read->width;
+  }
+  if (const auto* write = std::get_if<sivra::program::memory_write_effect>(&effect)) {
+    return write->width;
+  }
+  if (const auto* write = std::get_if<sivra::program::semantic_write>(&effect)) {
+    if (const auto* destination =
+          std::get_if<sivra::program::register_slice>(&write->destination)) {
+      return destination->bits.width;
+    }
+  }
+  return 0;
+}
+
+void print_assembly_effects(
+  std::string_view assembly
+) {
+  const sivra::x86::tokenizer tokenizer;
+  const sivra::x86::parser parser;
+  auto tokens = tokenizer.tokenize(sivra::core::source_id::from_index(0), assembly);
+  if (!tokens.has_value()) {
+    throw std::runtime_error(diagnostic_message(tokens.error()));
+  }
+  auto parsed = parser.parse(*tokens);
+  if (!parsed.has_value()) {
+    throw std::runtime_error(diagnostic_message(parsed.error()));
+  }
+
+  auto instruction_catalogue = sivra::x86::builtin_sse1_instruction_catalogue();
+  sivra::x86::form_resolver resolver(
+    sivra::x86::builtin_register_catalogue(), instruction_catalogue.catalogue
+  );
+  auto decoded = resolver.resolve(*parsed);
+  if (!decoded.has_value()) {
+    throw std::runtime_error(diagnostic_message(decoded.error()));
+  }
+
+  sivra::x86::semantic_provider provider;
+  std::println("decoded {} instruction(s)", decoded->instructions().size());
+  for (const auto& instruction : decoded->instructions()) {
+    const auto& form = provider.form(instruction.form);
+    auto semantics = provider.semantics(instruction);
+    if (!semantics.has_value()) {
+      throw std::runtime_error(diagnostic_message(semantics.error()));
+    }
+    std::println("{}: {}", form.mnemonic, form.key);
+    for (const auto& effect : semantics->effects) {
+      const auto width = effect_width(effect);
+      if (width == 0) {
+        std::println("  - {}", effect_kind(effect));
+      } else {
+        std::println("  - {} {}b", effect_kind(effect), width);
+      }
+    }
+    if (semantics->unsupported) {
+      std::println("  - unsupported: {}", semantics->unsupported_reason);
+    }
+  }
+}
+
 } // namespace
 
 int main(
@@ -186,17 +272,31 @@ int main(
 ) {
   CLI::App app{"SIVRA"};
   std::string example;
+  std::string assembly;
+  std::filesystem::path assembly_file;
   std::vector<std::string> example_choices;
   for (const auto name : sivra::tool::example_names()) {
     example_choices.emplace_back(name);
   }
 
-  app.add_option("example", example, "Embedded example")
-    ->required()
-    ->check(CLI::IsMember(example_choices));
+  app.add_option("example", example, "Embedded example")->check(CLI::IsMember(example_choices));
+  app.add_option("--asm", assembly, "Textual x86 SSE assembly to decode");
+  app.add_option("--asm-file", assembly_file, "Textual x86 SSE assembly file to decode")
+    ->check(CLI::ExistingFile);
   CLI11_PARSE(app, argc, argv);
 
   try {
+    const auto selected_inputs =
+      (example.empty() ? 0 : 1) + (assembly.empty() ? 0 : 1) + (assembly_file.empty() ? 0 : 1);
+    if (selected_inputs != 1) {
+      throw std::runtime_error("provide exactly one embedded example, --asm, or --asm-file");
+    }
+    if (!assembly.empty() || !assembly_file.empty()) {
+      const auto text = !assembly.empty() ? assembly : read_text_file(assembly_file);
+      print_assembly_effects(text);
+      return EXIT_SUCCESS;
+    }
+
     for (const auto& expression : sivra::tool::example_expressions(example)) {
       const auto path =
         std::filesystem::path(sivra::tool::fixture_directory()) / expression.file_name;
