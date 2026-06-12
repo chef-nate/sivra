@@ -21,13 +21,16 @@ bool matches_type(
   return false;
 }
 
-void validate_element(
+[[nodiscard]] sivra::core::result_t<void> validate_element(
   const sivra::ir::scalar_constant_t& value,
   const sivra::ir::value_type& type
 ) {
   if (!matches_type(value, type)) {
-    throw std::invalid_argument("constant element does not match result type");
+    return sivra::core::fail<void>(
+      "ir.constant.type_mismatch", "constant element does not match result type"
+    );
   }
+  return {};
 }
 
 } // namespace
@@ -54,40 +57,54 @@ std::int32_t i32_constant::value() const {
   return std::bit_cast<std::int32_t>(bits);
 }
 
-constant_value constant_value::scalar(
+core::result_t<constant_value> constant_value::scalar(
   value_type result_type,
   scalar_constant_t value
 ) {
   if (result_type.kind() != value_type_kind::scalar) {
-    throw std::invalid_argument("scalar constant requires scalar result type");
+    return core::fail<constant_value>(
+      "ir.constant.invalid_shape", "scalar constant requires scalar result type"
+    );
   }
-  validate_element(value, result_type);
+  if (auto validated = validate_element(value, result_type); !validated.has_value()) {
+    return std::unexpected(std::move(validated.error()));
+  }
   return constant_value(std::move(result_type), std::move(value));
 }
 
-constant_value constant_value::splat(
+core::result_t<constant_value> constant_value::splat(
   value_type result_type,
   scalar_constant_t element
 ) {
   if (result_type.kind() != value_type_kind::vector) {
-    throw std::invalid_argument("splat constant requires vector result type");
+    return core::fail<constant_value>(
+      "ir.constant.invalid_shape", "splat constant requires vector result type"
+    );
   }
-  validate_element(element, result_type);
+  if (auto validated = validate_element(element, result_type); !validated.has_value()) {
+    return std::unexpected(std::move(validated.error()));
+  }
   return constant_value(std::move(result_type), std::move(element));
 }
 
-constant_value constant_value::aggregate(
+core::result_t<constant_value> constant_value::aggregate(
   value_type result_type,
   std::vector<scalar_constant_t> elements
 ) {
   if (result_type.kind() != value_type_kind::vector) {
-    throw std::invalid_argument("aggregate constant requires vector result type");
+    return core::fail<constant_value>(
+      "ir.constant.invalid_shape", "aggregate constant requires vector result type"
+    );
   }
   if (elements.size() != result_type.lane_count()) {
-    throw std::invalid_argument("constant element count does not match result type");
+    return core::fail<constant_value>(
+      "ir.constant.invalid_shape", "constant element count does not match result type"
+    );
   }
   for (const auto& element : elements) {
-    validate_element(element, result_type);
+    if (auto validated = validate_element(element, result_type); !validated.has_value()) {
+      return std::unexpected(std::move(validated.error()));
+    }
   }
   return constant_value(std::move(result_type), std::move(elements));
 }

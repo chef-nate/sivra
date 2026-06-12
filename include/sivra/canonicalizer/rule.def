@@ -1,26 +1,26 @@
 /**
  * @file rule.def
  * @brief Canonicalizer rule list used to generate public rule metadata and the
- * private rule pipeline.
+ * public metadata.
  *
  * Each entry is:
- * SIVRA_CANONICALIZER_RULE(name, bit_value, enabled_by_default, description)
+ * SIVRA_CANONICALIZER_RULE(name, stable_key, enabled_by_default, description)
  */
 SIVRA_CANONICALIZER_RULE(
   associative_flattening,
-  1u << 0,
+  "sivra.associative_flattening",
   true,
   "Flattens nested uses of an associative operation."
 )
 SIVRA_CANONICALIZER_RULE(
   identity_elimination,
-  1u << 1,
+  "sivra.identity_elimination",
   true,
   "Removes operands equal to an operation's identity."
 )
 SIVRA_CANONICALIZER_RULE(
   annihilator_collapse,
-  1u << 2,
+  "sivra.annihilator_collapse",
   true,
   "Replaces an operation with an operand equal to its annihilator."
 )

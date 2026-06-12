@@ -34,8 +34,10 @@ expression_node_kind expression_node::kind() const {
         return expression_node_kind::external_value;
       } else if constexpr (std::is_same_v<T, unknown_node>) {
         return expression_node_kind::unknown;
-      } else {
+      } else if constexpr (std::is_same_v<T, operation_application>) {
         return expression_node_kind::operation;
+      } else {
+        return expression_node_kind::merge;
       }
     },
     m_payload
@@ -49,6 +51,9 @@ const expression_payload_t& expression_node::payload() const {
 std::span<const node_id> expression_node::operands() const {
   if (const auto* operation = get_if_operation()) {
     return operation->operands;
+  }
+  if (const auto* merge = get_if_merge()) {
+    return merge->incoming;
   }
   return {};
 }
@@ -75,6 +80,10 @@ const unknown_node* expression_node::get_if_unknown() const {
 
 const operation_application* expression_node::get_if_operation() const {
   return std::get_if<operation_application>(&m_payload);
+}
+
+const merge_node* expression_node::get_if_merge() const {
+  return std::get_if<merge_node>(&m_payload);
 }
 
 } // namespace sivra::ir

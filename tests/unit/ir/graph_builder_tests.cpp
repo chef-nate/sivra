@@ -6,6 +6,16 @@
 
 #include <array>
 #include <stdexcept>
+#include <type_traits>
+
+static_assert(
+  !std::is_constructible_v<
+    sivra::ir::expression_node,
+    sivra::ir::node_id,
+    sivra::ir::value_type,
+    sivra::ir::expression_payload_t
+  >
+);
 
 TEST_CASE(
   "graph builder creates typed variant nodes"
@@ -22,7 +32,7 @@ TEST_CASE(
   const auto sum = fixture.apply(fixture.operations.builtins.add, {symbol, external});
 
   CHECK(fixture.graph.at(constant).get_if_constant() != nullptr);
-  CHECK(fixture.graph.at(symbol).get_if_symbol()->name == "x");
+  CHECK(fixture.graph.symbol_name(fixture.graph.at(symbol).get_if_symbol()->symbol) == "x");
   CHECK(fixture.graph.at(external).get_if_external_value()->value.index() == 0);
   CHECK(fixture.graph.at(unknown).get_if_unknown()->reason == "not recovered");
   REQUIRE(fixture.graph.at(sum).get_if_operation() != nullptr);
@@ -41,7 +51,7 @@ TEST_CASE(
   CHECK(lhs_node != rhs_node);
   CHECK(lhs.graph.contains(lhs_node));
   CHECK(!rhs.graph.contains(lhs_node));
-  CHECK_THROWS_AS(rhs.graph.at(lhs_node), std::invalid_argument);
+  CHECK_THROWS_AS(static_cast<void>(rhs.graph.at(lhs_node)), std::invalid_argument);
 }
 
 TEST_CASE(
@@ -154,4 +164,103 @@ TEST_CASE(
   const auto result = target.builder.make_external_value(external_id, sivra::ir::value_type::f32());
   REQUIRE(!result.has_value());
   CHECK(result.error().front().code == "ir.graph.foreign_external_value");
+}
+
+TEST_CASE(
+  "graph builder validates operation attributes before insertion"
+) {
+  const auto schema = sivra::test_support::require_value(
+    sivra::ir::operation_attribute_schema::create(
+      std::array{
+        sivra::ir::operation_attribute_field{
+          .key = "lane",
+          .kind = sivra::ir::operation_attribute_kind::integer,
+          .required = true,
+          .minimum_integer = 0,
+          .maximum_integer = 3,
+        },
+      }
+    )
+  );
+  auto registration = sivra::test_support::test_operation(
+    "extract",
+    {},
+    {
+      .arity = {.minimum = 1, .maximum = 1},
+      .operand_types = sivra::ir::operand_type_constraint::same_as_result,
+    }
+  );
+  registration.attribute_schema = schema;
+  sivra::test_support::graph_builder_fixture fixture({std::move(registration)});
+  const auto input = fixture.symbol("input");
+  const std::array operands{input};
+  const auto size_before = fixture.graph.size();
+
+  const auto missing = fixture.builder.apply(
+    fixture.operations.custom.front(),
+    operands,
+    sivra::ir::operation_attributes{},
+    sivra::ir::value_type::f32()
+  );
+  REQUIRE(!missing.has_value());
+  CHECK(missing.error().front().code == "ir.attribute.required");
+  CHECK(fixture.graph.size() == size_before);
+
+  const auto invalid_attributes = sivra::test_support::require_value(
+    sivra::ir::operation_attributes::create(
+      std::array{
+        sivra::ir::operation_attribute{.key = "lane", .value = std::int64_t{4}},
+      }
+    )
+  );
+  const auto invalid = fixture.builder.apply(
+    fixture.operations.custom.front(), operands, invalid_attributes, sivra::ir::value_type::f32()
+  );
+  REQUIRE(!invalid.has_value());
+  CHECK(invalid.error().front().code == "ir.attribute.range");
+  CHECK(fixture.graph.size() == size_before);
+
+  const auto valid_attributes = sivra::test_support::require_value(
+    sivra::ir::operation_attributes::create(
+      std::array{
+        sivra::ir::operation_attribute{.key = "lane", .value = std::int64_t{2}},
+      }
+    )
+  );
+  const auto valid = fixture.builder.apply(
+    fixture.operations.custom.front(), operands, valid_attributes, sivra::ir::value_type::f32()
+  );
+  REQUIRE(valid.has_value());
+  const auto* application = fixture.graph.at(*valid).get_if_operation();
+  REQUIRE(application != nullptr);
+  REQUIRE(application->attributes.find("lane") != nullptr);
+  CHECK(std::get<std::int64_t>(*application->attributes.find("lane")) == 2);
+}
+
+TEST_CASE(
+  "graph builder creates typed merges and rejects malformed merges atomically"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  sivra::test_support::graph_builder_fixture foreign;
+  const auto lhs = fixture.symbol("lhs");
+  const auto rhs = fixture.symbol("rhs");
+  const std::array incoming{lhs, rhs};
+
+  const auto merge = fixture.builder.make_merge(incoming, sivra::ir::value_type::f32());
+  REQUIRE(merge.has_value());
+  REQUIRE(fixture.graph.at(*merge).get_if_merge() != nullptr);
+  CHECK(fixture.graph.at(*merge).operands().size() == 2);
+
+  const auto size_before = fixture.graph.size();
+  const std::array too_few{lhs};
+  CHECK(!fixture.builder.make_merge(too_few, sivra::ir::value_type::f32()).has_value());
+  CHECK(fixture.graph.size() == size_before);
+
+  const auto integer = fixture.symbol("integer", sivra::ir::value_type::i32());
+  const std::array wrong_types{lhs, integer};
+  CHECK(!fixture.builder.make_merge(wrong_types, sivra::ir::value_type::f32()).has_value());
+
+  const std::array wrong_owner{lhs, foreign.symbol("foreign")};
+  CHECK(!fixture.builder.make_merge(wrong_owner, sivra::ir::value_type::f32()).has_value());
+  CHECK(fixture.graph.size() == size_before + 1);
 }

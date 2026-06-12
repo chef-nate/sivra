@@ -57,6 +57,15 @@ core::owner_token expression_graph::owner() const {
   return m_owner;
 }
 
+std::string_view expression_graph::symbol_name(
+  symbol_id symbol
+) const {
+  if (symbol.owner() != m_owner) {
+    throw std::invalid_argument("symbol_id belongs to another expression_graph");
+  }
+  return m_symbol_names.at(symbol.index());
+}
+
 node_id expression_graph::append_validated(
   value_type result_type,
   expression_payload_t payload
@@ -74,6 +83,18 @@ external_value_id expression_graph::allocate_external_value_id() {
     throw std::length_error("expression_graph external_value_id limit exceeded");
   }
   return external_value_id::unsafe_from_index(m_next_external_value++, m_catalogue->owner());
+}
+
+symbol_id expression_graph::allocate_symbol_id(
+  std::string name
+) {
+  if (m_symbol_names.size() > std::numeric_limits<std::uint32_t>::max()) {
+    throw std::length_error("expression_graph symbol_id limit exceeded");
+  }
+  const auto symbol =
+    symbol_id::unsafe_from_index(static_cast<std::uint32_t>(m_symbol_names.size()), m_owner);
+  m_symbol_names.push_back(std::move(name));
+  return symbol;
 }
 
 } // namespace sivra::ir

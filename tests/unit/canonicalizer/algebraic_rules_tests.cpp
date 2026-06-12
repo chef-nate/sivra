@@ -1,8 +1,8 @@
 #include "../../support/expression_format.hpp"
 #include "../../support/graph_builder_fixture.hpp"
 
+#include <sivra/canonicalizer/configuration.hpp>
 #include <sivra/canonicalizer/engine.hpp>
-#include <sivra/canonicalizer/options.hpp>
 #include <sivra/canonicalizer/rule.hpp>
 
 #include <doctest/doctest.h>
@@ -14,11 +14,13 @@ namespace {
 std::string canonical_expression(
   const sivra::test_support::graph_builder_fixture& fixture,
   sivra::ir::node_id root,
-  sivra::canonicalizer::options options = {}
+  sivra::canonicalizer::configuration configuration = {}
 ) {
-  const sivra::canonicalizer::engine engine(options);
+  const sivra::canonicalizer::engine engine(std::move(configuration));
   const auto result = engine.canonicalize(fixture.graph, root);
-  return sivra::test_support::format_expression(result.graph, result.root);
+  REQUIRE(result.status == sivra::core::analysis_status::complete);
+  REQUIRE(result.root.has_value());
+  return sivra::test_support::format_expression(result.graph, *result.root);
 }
 
 } // namespace
@@ -45,10 +47,10 @@ TEST_CASE(
   const auto c = fixture.symbol("c");
   const auto nested = fixture.apply(fixture.operations.builtins.add, {b, c});
   const auto root = fixture.apply(fixture.operations.builtins.add, {a, nested});
-  sivra::canonicalizer::options options;
-  options.disable_trait(sivra::ir::operation_trait::associative);
+  sivra::canonicalizer::configuration configuration;
+  configuration.disable_trait(sivra::ir::operation_trait::associative);
 
-  CHECK(canonical_expression(fixture, root, options) == "add(a, add(b, c))");
+  CHECK(canonical_expression(fixture, root, configuration) == "add(a, add(b, c))");
 }
 
 TEST_CASE(
@@ -118,13 +120,13 @@ TEST_CASE(
     fixture.operations.builtins.multiply,
     {fixture.symbol("x"), fixture.f32(0.0F), fixture.f32(1.0F)}
   );
-  sivra::canonicalizer::options options;
-  options.disable_rule(
-    sivra::canonicalizer::rule::identity_elimination |
-    sivra::canonicalizer::rule::annihilator_collapse
-  );
+  sivra::canonicalizer::configuration configuration;
+  REQUIRE(configuration.disable_rule(sivra::canonicalizer::builtin_rules::identity_elimination)
+            .has_value());
+  REQUIRE(configuration.disable_rule(sivra::canonicalizer::builtin_rules::annihilator_collapse)
+            .has_value());
 
-  CHECK(canonical_expression(fixture, root, options) == "multiply(x, 0, 1)");
+  CHECK(canonical_expression(fixture, root, configuration) == "multiply(x, 0, 1)");
 }
 
 TEST_CASE(
@@ -139,9 +141,12 @@ TEST_CASE(
         },
     },
     {
-      .minimum_operands = 2,
-      .maximum_operands = std::nullopt,
-      .operands_match_result = false,
+      .arity =
+        {
+          .minimum = 2,
+          .maximum = std::nullopt,
+        },
+      .operand_types = sivra::ir::operand_type_constraint::any,
     }
   );
   sivra::test_support::graph_builder_fixture fixture({std::move(operation)});
@@ -163,9 +168,12 @@ TEST_CASE(
         },
     },
     {
-      .minimum_operands = 2,
-      .maximum_operands = std::nullopt,
-      .operands_match_result = true,
+      .arity =
+        {
+          .minimum = 2,
+          .maximum = std::nullopt,
+        },
+      .operand_types = sivra::ir::operand_type_constraint::same_as_result,
     }
   );
   sivra::test_support::graph_builder_fixture fixture({std::move(operation)});

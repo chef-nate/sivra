@@ -1,6 +1,6 @@
 #pragma once
 
-#include "options.hpp"
+#include "configuration.hpp"
 #include "result.hpp"
 
 #include <sivra/ir/expression_graph.hpp>
@@ -16,10 +16,10 @@ namespace sivra::canonicalizer {
 class engine {
 public:
   /**
-   * @brief Creates an engine with the given canonicalization options.
+   * @brief Creates an engine with the given canonicalization configuration.
    */
   explicit engine(
-    options config = {}
+    configuration config = {}
   );
 
   engine(
@@ -39,9 +39,9 @@ public:
   ) = delete;
 
   /**
-   * @brief Returns the options used by this engine.
+   * @brief Returns the configuration used by this engine.
    */
-  [[nodiscard]] const options& config() const;
+  [[nodiscard]] const configuration& configuration() const;
 
   /**
    * @brief Canonicalizes one or more root expressions.
@@ -49,7 +49,7 @@ public:
    * The returned result contains a fresh graph, with roots preserving the order of
    * the input root span. The result shares the source operation catalogue.
    */
-  [[nodiscard]] result canonicalize(
+  [[nodiscard]] canonicalization_result canonicalize(
     const ir::expression_graph& graph,
     std::span<const ir::node_id> roots
   ) const;
@@ -59,13 +59,13 @@ public:
    *
    * The result shares the source operation catalogue.
    */
-  [[nodiscard]] single_result canonicalize(
+  [[nodiscard]] single_canonicalization_result canonicalize(
     const ir::expression_graph& graph,
     ir::node_id root
   ) const;
 
 private:
-  options m_options;
+  canonicalizer::configuration m_configuration;
 };
 
 } // namespace sivra::canonicalizer

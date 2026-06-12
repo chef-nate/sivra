@@ -26,6 +26,14 @@ struct stage_result {
   std::optional<T> artifact;
   analysis_status status = analysis_status::complete;
   diagnostic_bundle_t diagnostics;
+
+  [[nodiscard]] bool has_artifact() const { return artifact.has_value(); }
+
+  [[nodiscard]] bool is_consistent() const {
+    const bool permits_artifact =
+      status == analysis_status::complete || status == analysis_status::partial;
+    return artifact.has_value() == permits_artifact;
+  }
 };
 
 template <typename T>

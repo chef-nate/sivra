@@ -1,66 +1,57 @@
 #pragma once
 
-#include <cstdint>
+#include <compare>
+#include <span>
+#include <string>
+#include <string_view>
 
 namespace sivra::canonicalizer {
 
-/**
- * @enum rule
- * @brief Canonicalization rules independent of operation traits.
- *
- * rule controls transformations that are not represented by ir::operation_trait.
- * Trait-driven behavior is controlled separately through options::enabled_traits.
- */
-enum class rule : std::uint32_t {
-  none = 0, ///< No canonicalization rules.
-#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default, description) name = value,
-#include "rule.def"
-#undef SIVRA_CANONICALIZER_RULE
+class rule_id {
+public:
+  explicit rule_id(
+    std::string key
+  );
+
+  [[nodiscard]] std::string_view key() const;
+
+  auto operator<=>(
+    const rule_id&
+  ) const = default;
+
+private:
+  std::string m_key;
 };
 
-/**
- * @brief Combines rule values into a rule mask.
- */
-constexpr rule operator|(
-  rule lhs,
-  rule rhs
-) {
-  return static_cast<rule>(static_cast<std::uint32_t>(lhs) | static_cast<std::uint32_t>(rhs));
-}
+enum class pass_phase {
+  validation,
+  local_simplification,
+  shape_normalization,
+  algebraic_collection,
+  domain_normalization,
+  cleanup,
+  verification,
+};
 
-/**
- * @brief Intersects rule values.
- */
-constexpr rule operator&(
-  rule lhs,
-  rule rhs
-) {
-  return static_cast<rule>(static_cast<std::uint32_t>(lhs) & static_cast<std::uint32_t>(rhs));
-}
+struct rule_metadata {
+  rule_id id;
+  std::string_view name;
+  bool enabled_by_default;
+  std::string_view description;
+};
 
-/**
- * @brief Inverts a rule mask.
- */
-constexpr rule operator~(
-  rule value
-) {
-  return static_cast<rule>(~static_cast<std::uint32_t>(value));
-}
+namespace builtin_rules {
 
-/**
- * @brief Returns the rule mask enabled by default.
- */
-[[nodiscard]] constexpr rule default_enabled_rules() {
-  auto enabled = rule::none;
-
-#define SIVRA_CANONICALIZER_RULE(name, value, enabled_by_default, description)                     \
-  if constexpr (enabled_by_default) {                                                              \
-    enabled = enabled | rule::name;                                                                \
-  }
+#define SIVRA_CANONICALIZER_RULE(name, key, enabled_by_default, description)                       \
+  extern const rule_id name;
 #include "rule.def"
 #undef SIVRA_CANONICALIZER_RULE
 
-  return enabled;
-}
+} // namespace builtin_rules
+
+std::span<const rule_metadata> available_rules();
+bool is_known_rule(
+  const rule_id& rule
+);
 
 } // namespace sivra::canonicalizer

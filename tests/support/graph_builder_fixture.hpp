@@ -58,15 +58,19 @@ inline ir::operation_registration test_operation(
   std::string key,
   ir::operation_semantics semantics = {},
   ir::operation_signature signature = {
-    .minimum_operands = 0,
-    .maximum_operands = std::nullopt,
-    .operands_match_result = true,
+    .arity =
+      {
+        .minimum = 0,
+        .maximum = std::nullopt,
+      },
+    .operand_types = ir::operand_type_constraint::same_as_result,
   }
 ) {
   return {
     .key = key,
     .name = std::move(key),
     .signature = signature,
+    .attribute_schema = {},
     .semantics = std::move(semantics),
   };
 }
@@ -90,17 +94,17 @@ public:
   ir::node_id f32(
     float value
   ) {
-    return require_value(builder.make_constant(
+    return require_value(builder.make_constant(require_value(
       ir::constant_value::scalar(ir::value_type::f32(), ir::f32_constant::from_value(value))
-    ));
+    )));
   }
 
   ir::node_id i32(
     std::int32_t value
   ) {
-    return require_value(builder.make_constant(
+    return require_value(builder.make_constant(require_value(
       ir::constant_value::scalar(ir::value_type::i32(), ir::i32_constant::from_value(value))
-    ));
+    )));
   }
 
   ir::node_id apply(

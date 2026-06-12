@@ -1,7 +1,12 @@
 #pragma once
 
+#include <sivra/core/hash.hpp>
+#include <sivra/core/result.hpp>
+
 #include <compare>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 
 namespace sivra::ir {
 
@@ -26,7 +31,7 @@ public:
     std::uint32_t bit_width = 0
   );
 
-  static value_type scalar(
+  static core::result_t<value_type> scalar(
     scalar_category category,
     std::uint32_t bit_width
   );
@@ -34,17 +39,18 @@ public:
   static value_type f32();
   static value_type i32();
 
-  static value_type vector(
+  static core::result_t<value_type> vector(
     scalar_category element_category,
     std::uint32_t element_bit_width,
     std::uint32_t lane_count
   );
 
-  value_type_kind kind() const;
-  scalar_category category() const;
-  std::uint32_t element_bit_width() const;
-  std::uint32_t lane_count() const;
-  std::uint32_t bit_width() const;
+  [[nodiscard]] value_type_kind kind() const;
+  [[nodiscard]] scalar_category category() const;
+  [[nodiscard]] std::uint32_t element_bit_width() const;
+  [[nodiscard]] std::uint32_t lane_count() const;
+  [[nodiscard]] std::uint32_t bit_width() const;
+  [[nodiscard]] core::result_t<void> validate() const;
 
   auto operator<=>(
     const value_type&
@@ -65,3 +71,16 @@ private:
 };
 
 } // namespace sivra::ir
+
+template <>
+struct std::hash<sivra::ir::value_type> {
+  std::size_t operator()(
+    const sivra::ir::value_type& value
+  ) const noexcept {
+    std::size_t seed = 0;
+    sivra::core::hash_combine(
+      seed, value.kind(), value.category(), value.element_bit_width(), value.lane_count()
+    );
+    return seed;
+  }
+};

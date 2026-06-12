@@ -5,7 +5,6 @@
 #include <doctest/doctest.h>
 
 #include <array>
-#include <stdexcept>
 
 TEST_CASE(
   "canonicalizer rebuilds requested roots in order"
@@ -20,8 +19,12 @@ TEST_CASE(
   const auto result = engine.canonicalize(fixture.graph, roots);
 
   REQUIRE(result.roots.size() == 3);
-  CHECK(result.graph.at(result.roots[0]).get_if_symbol()->name == "rhs");
-  CHECK(result.graph.at(result.roots[2]).get_if_symbol()->name == "lhs");
+  CHECK(
+    result.graph.symbol_name(result.graph.at(result.roots[0]).get_if_symbol()->symbol) == "rhs"
+  );
+  CHECK(
+    result.graph.symbol_name(result.graph.at(result.roots[2]).get_if_symbol()->symbol) == "lhs"
+  );
   REQUIRE(result.graph.at(result.roots[1]).get_if_operation() != nullptr);
 }
 
@@ -55,10 +58,11 @@ TEST_CASE(
   const sivra::canonicalizer::engine engine;
   const auto result = engine.canonicalize(fixture.graph, root);
 
+  REQUIRE(result.root.has_value());
   CHECK(result.graph.owner() != fixture.graph.owner());
-  CHECK(result.root.owner() == result.graph.owner());
+  CHECK(result.root->owner() == result.graph.owner());
   CHECK(result.graph.shared_catalogue() == fixture.graph.shared_catalogue());
-  CHECK(result.graph.at(result.root).get_if_symbol()->name == "x");
+  CHECK(result.graph.symbol_name(result.graph.at(*result.root).get_if_symbol()->symbol) == "x");
 }
 
 TEST_CASE(
@@ -92,7 +96,64 @@ TEST_CASE(
   const auto foreign_root = foreign.symbol("foreign");
 
   const sivra::canonicalizer::engine engine;
-  CHECK_THROWS_AS(
-    static_cast<void>(engine.canonicalize(fixture.graph, foreign_root)), std::invalid_argument
+  const auto result = engine.canonicalize(fixture.graph, foreign_root);
+
+  CHECK(result.status == sivra::core::analysis_status::invalid_input);
+  CHECK(!result.root.has_value());
+  REQUIRE(!result.diagnostics.empty());
+  CHECK(result.diagnostics.front().code == "canonicalizer.invalid_root");
+}
+
+TEST_CASE(
+  "canonicalizer preserves merge nodes and operation attributes"
+) {
+  const auto schema = sivra::test_support::require_value(
+    sivra::ir::operation_attribute_schema::create(
+      std::array{
+        sivra::ir::operation_attribute_field{
+          .key = "lane",
+          .kind = sivra::ir::operation_attribute_kind::integer,
+          .required = true,
+          .minimum_integer = 0,
+          .maximum_integer = 3,
+        },
+      }
+    )
   );
+  auto operation = sivra::test_support::test_operation(
+    "extract",
+    {},
+    {
+      .arity = {.minimum = 1, .maximum = 1},
+      .operand_types = sivra::ir::operand_type_constraint::same_as_result,
+    }
+  );
+  operation.attribute_schema = schema;
+  sivra::test_support::graph_builder_fixture fixture({std::move(operation)});
+  const std::array incoming{fixture.symbol("lhs"), fixture.symbol("rhs")};
+  const auto merge = sivra::test_support::require_value(
+    fixture.builder.make_merge(incoming, sivra::ir::value_type::f32())
+  );
+  const auto attributes = sivra::test_support::require_value(
+    sivra::ir::operation_attributes::create(
+      std::array{
+        sivra::ir::operation_attribute{.key = "lane", .value = std::int64_t{2}},
+      }
+    )
+  );
+  const std::array operands{merge};
+  const auto root = sivra::test_support::require_value(fixture.builder.apply(
+    fixture.operations.custom.front(), operands, attributes, sivra::ir::value_type::f32()
+  ));
+
+  const sivra::canonicalizer::engine engine;
+  const auto result = engine.canonicalize(fixture.graph, root);
+
+  REQUIRE(result.root.has_value());
+  const auto* application = result.graph.at(*result.root).get_if_operation();
+  REQUIRE(application != nullptr);
+  REQUIRE(application->attributes.find("lane") != nullptr);
+  CHECK(std::get<std::int64_t>(*application->attributes.find("lane")) == 2);
+  REQUIRE(application->operands.size() == 1);
+  CHECK(result.graph.at(application->operands.front()).get_if_merge() != nullptr);
 }

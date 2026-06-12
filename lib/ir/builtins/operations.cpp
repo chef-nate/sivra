@@ -9,14 +9,20 @@ core::result_t<builtin_operation_ids> register_builtin_operations(
   operation_catalogue_builder& builder
 ) {
   const operation_signature variadic_same_type{
-    .minimum_operands = 2,
-    .maximum_operands = std::nullopt,
-    .operands_match_result = true,
+    .arity =
+      {
+        .minimum = 2,
+        .maximum = std::nullopt,
+      },
+    .operand_types = operand_type_constraint::same_as_result,
   };
   const operation_signature binary_same_type{
-    .minimum_operands = 2,
-    .maximum_operands = 2,
-    .operands_match_result = true,
+    .arity =
+      {
+        .minimum = 2,
+        .maximum = 2,
+      },
+    .operand_types = operand_type_constraint::same_as_result,
   };
 
   const std::array registrations{
@@ -24,6 +30,7 @@ core::result_t<builtin_operation_ids> register_builtin_operations(
       .key = "add",
       .name = "add",
       .signature = variadic_same_type,
+      .attribute_schema = {},
       .semantics =
         operation_semantics{
           .traits = operation_trait::associative | operation_trait::commutative,
@@ -34,6 +41,7 @@ core::result_t<builtin_operation_ids> register_builtin_operations(
       .key = "multiply",
       .name = "multiply",
       .signature = variadic_same_type,
+      .attribute_schema = {},
       .semantics =
         operation_semantics{
           .traits = operation_trait::associative | operation_trait::commutative,
@@ -45,11 +53,13 @@ core::result_t<builtin_operation_ids> register_builtin_operations(
       .key = "subtract",
       .name = "subtract",
       .signature = binary_same_type,
+      .attribute_schema = {},
     },
     operation_registration{
       .key = "maximum",
       .name = "maximum",
       .signature = binary_same_type,
+      .attribute_schema = {},
     },
   };
 

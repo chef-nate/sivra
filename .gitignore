@@ -4,3 +4,9 @@ build/
 docs/doxygen/
 docs/ai/
 AGENTS.md
+.envrc
+.idea/
+.codex/
+.agents/
+.venv/
+

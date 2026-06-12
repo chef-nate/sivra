@@ -1,6 +1,7 @@
 #pragma once
 
-#include "rule.hpp"
-#include "options.hpp"
-#include "result.hpp"
+#include "configuration.hpp"
 #include "engine.hpp"
+#include "equivalence_contract.hpp"
+#include "result.hpp"
+#include "rule.hpp"

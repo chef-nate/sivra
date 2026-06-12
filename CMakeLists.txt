@@ -9,19 +9,58 @@ project(
 
 include(FetchContent)
 include(CTest)
+include(CMakePackageConfigHelpers)
+include(GNUInstallDirs)
 
 option(SIVRA_BUILD_CLI "Build the SIVRA command-line tool" ${PROJECT_IS_TOP_LEVEL})
+option(SIVRA_BUILD_DOCS "Build SIVRA documentation" OFF)
 option(
   SIVRA_BUILD_COMPAT_IMPORTERS
   "Build compatibility importers for legacy artifacts"
   ON
 )
+option(SIVRA_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
+option(SIVRA_ENABLE_COVERAGE "Enable compiler coverage instrumentation" OFF)
+
+function(sivra_apply_build_options target)
+  if(SIVRA_ENABLE_SANITIZERS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options(${target}
+        PRIVATE
+          -fno-omit-frame-pointer
+          -fsanitize=address,undefined
+      )
+      target_link_options(${target}
+        PRIVATE
+          -fsanitize=address,undefined
+      )
+    else()
+      message(FATAL_ERROR "SIVRA_ENABLE_SANITIZERS requires Clang or GCC")
+    endif()
+  endif()
+
+  if(SIVRA_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options(${target}
+        PRIVATE
+          --coverage
+      )
+      target_link_options(${target}
+        PRIVATE
+          --coverage
+      )
+    else()
+      message(FATAL_ERROR "SIVRA_ENABLE_COVERAGE requires Clang or GCC")
+    endif()
+  endif()
+endfunction()
 
 if(SIVRA_BUILD_CLI)
   FetchContent_Declare(
     cli11
     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
     GIT_TAG v2.6.2
+    EXCLUDE_FROM_ALL
   )
 
   FetchContent_MakeAvailable(cli11)
@@ -32,6 +71,7 @@ if(SIVRA_BUILD_COMPAT_IMPORTERS)
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.12.0
+    EXCLUDE_FROM_ALL
   )
 
   FetchContent_MakeAvailable(nlohmann_json)
@@ -42,6 +82,7 @@ if(BUILD_TESTING)
     doctest
     GIT_REPOSITORY https://github.com/doctest/doctest.git
     GIT_TAG v2.4.12
+    EXCLUDE_FROM_ALL
   )
 
   FetchContent_MakeAvailable(doctest)
@@ -60,3 +101,47 @@ endif()
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
+
+install(
+  TARGETS
+    sivra-core
+    sivra-ir
+  EXPORT sivraTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(
+  DIRECTORY
+    include/sivra/core
+    include/sivra/ir
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sivra
+  FILES_MATCHING PATTERN "*.hpp"
+)
+
+install(
+  EXPORT sivraTargets
+  FILE sivraTargets.cmake
+  NAMESPACE sivra::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sivra
+)
+
+configure_package_config_file(
+  cmake/sivraConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/sivraConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sivra
+)
+
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/sivraConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+install(
+  FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/sivraConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/sivraConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sivra
+)

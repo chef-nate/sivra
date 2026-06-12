@@ -2,6 +2,8 @@
 
 #include "value_type.hpp"
 
+#include <sivra/core/result.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <variant>
@@ -16,7 +18,7 @@ struct f32_constant {
     float value
   );
 
-  float value() const;
+  [[nodiscard]] float value() const;
   bool operator==(
     const f32_constant&
   ) const = default;
@@ -29,7 +31,7 @@ struct i32_constant {
     std::int32_t value
   );
 
-  std::int32_t value() const;
+  [[nodiscard]] std::int32_t value() const;
   bool operator==(
     const i32_constant&
   ) const = default;
@@ -39,26 +41,26 @@ using scalar_constant_t = std::variant<f32_constant, i32_constant>;
 
 class constant_value {
 public:
-  static constant_value scalar(
+  static core::result_t<constant_value> scalar(
     value_type result_type,
     scalar_constant_t value
   );
 
-  static constant_value splat(
+  static core::result_t<constant_value> splat(
     value_type result_type,
     scalar_constant_t element
   );
 
-  static constant_value aggregate(
+  static core::result_t<constant_value> aggregate(
     value_type result_type,
     std::vector<scalar_constant_t> elements
   );
 
-  const value_type& result_type() const;
-  std::size_t element_count() const;
-  bool is_splat() const;
+  [[nodiscard]] const value_type& result_type() const;
+  [[nodiscard]] std::size_t element_count() const;
+  [[nodiscard]] bool is_splat() const;
 
-  const scalar_constant_t& element(
+  [[nodiscard]] const scalar_constant_t& element(
     std::size_t index
   ) const;
 

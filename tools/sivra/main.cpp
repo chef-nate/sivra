@@ -1,4 +1,4 @@
-#include "embedded_examples.hpp"
+#include "examples.hpp"
 
 #include <raw_expression_json.hpp>
 
@@ -14,6 +14,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <print>
 #include <span>
 #include <stdexcept>
@@ -34,8 +37,8 @@ std::string display_name(
   return std::string(operation);
 }
 
-std::string format_memory_ref(
-  const sivra::compat::legacy_memory_ref& value
+std::string format_memory_operand(
+  const sivra::compat::raw_memory_operand& value
 ) {
   auto formatted = std::string("mem[") + value.base_register;
   if (value.offset > 0) {
@@ -107,23 +110,36 @@ std::string format_constant(
 std::string format_expression(
   const sivra::ir::expression_graph& graph,
   sivra::ir::node_id root,
-  std::span<const sivra::compat::legacy_memory_ref> external_values
+  std::span<const sivra::compat::raw_memory_operand> external_values
 ) {
   const auto& node = graph.at(root);
   if (const auto* constant = node.get_if_constant()) {
     return format_constant(constant->value);
   }
   if (const auto* symbol = node.get_if_symbol()) {
-    return symbol->name;
+    return std::string(graph.symbol_name(symbol->symbol));
   }
   if (const auto* external = node.get_if_external_value()) {
     if (external->value.index() >= external_values.size()) {
       throw std::out_of_range("external value metadata is missing");
     }
-    return format_memory_ref(external_values[external->value.index()]);
+    return format_memory_operand(external_values[external->value.index()]);
   }
   if (const auto* unknown = node.get_if_unknown()) {
     return "unknown(" + unknown->reason + ")";
+  }
+  if (const auto* merge = node.get_if_merge()) {
+    auto formatted = std::string("merge(");
+    bool first = true;
+    for (const auto incoming : merge->incoming) {
+      if (!first) {
+        formatted += ", ";
+      }
+      first = false;
+      formatted += format_expression(graph, incoming, external_values);
+    }
+    formatted += ")";
+    return formatted;
   }
 
   const auto& application = std::get<sivra::ir::operation_application>(node.payload());
@@ -138,6 +154,28 @@ std::string format_expression(
   }
   formatted += ")";
   return formatted;
+}
+
+std::string read_text_file(
+  const std::filesystem::path& path
+) {
+  std::ifstream stream(path);
+  if (!stream) {
+    throw std::runtime_error("failed to open fixture: " + path.string());
+  }
+  return {
+    std::istreambuf_iterator<char>(stream),
+    std::istreambuf_iterator<char>(),
+  };
+}
+
+std::string diagnostic_message(
+  const sivra::core::diagnostic_bundle_t& diagnostics
+) {
+  if (diagnostics.empty()) {
+    return "unknown analysis failure";
+  }
+  return diagnostics.front().message;
 }
 
 } // namespace
@@ -160,13 +198,22 @@ int main(
 
   try {
     for (const auto& expression : sivra::tool::example_expressions(example)) {
-      const auto loaded = sivra::compat::parse_raw_expression_json(expression.json);
+      const auto path =
+        std::filesystem::path(sivra::tool::fixture_directory()) / expression.file_name;
+      const auto json = read_text_file(path);
+      const auto loaded = sivra::compat::parse_raw_expression_json(json);
+      if (!loaded.has_value()) {
+        throw std::runtime_error(diagnostic_message(loaded.error()));
+      }
       const sivra::canonicalizer::engine canonicalizer;
-      const auto canonicalized = canonicalizer.canonicalize(loaded.graph, loaded.root);
+      const auto canonicalized = canonicalizer.canonicalize(loaded->graph, loaded->root);
+      if (!canonicalized.root.has_value()) {
+        throw std::runtime_error(diagnostic_message(canonicalized.diagnostics));
+      }
       std::println(
         "{}: {}",
         expression.output,
-        format_expression(canonicalized.graph, canonicalized.root, loaded.external_values)
+        format_expression(canonicalized.graph, *canonicalized.root, loaded->external_values)
       );
     }
   } catch (const std::exception& error) {

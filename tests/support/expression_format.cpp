@@ -104,13 +104,26 @@ std::string format_expression(
     return format_constant(constant->value);
   }
   if (const auto* symbol = node.get_if_symbol()) {
-    return symbol->name;
+    return std::string(graph.symbol_name(symbol->symbol));
   }
   if (const auto* external = node.get_if_external_value()) {
     return "external" + std::to_string(external->value.index());
   }
   if (const auto* unknown = node.get_if_unknown()) {
     return "unknown(" + unknown->reason + ")";
+  }
+  if (const auto* merge = node.get_if_merge()) {
+    auto formatted = std::string("merge(");
+    bool first = true;
+    for (const auto incoming : merge->incoming) {
+      if (!first) {
+        formatted += ", ";
+      }
+      first = false;
+      formatted += format_expression(graph, incoming);
+    }
+    formatted += ")";
+    return formatted;
   }
 
   const auto& application = std::get<ir::operation_application>(node.payload());

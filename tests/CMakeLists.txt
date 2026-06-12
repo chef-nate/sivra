@@ -1,63 +1,104 @@
-add_executable(sivra-unittests)
+function(add_sivra_test target)
+  cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
 
-target_sources(sivra-unittests
-  PRIVATE
+  add_executable(${target})
+
+  target_sources(${target}
+    PRIVATE
+      unit/main.cpp
+      ${ARG_SOURCES}
+  )
+
+  target_link_libraries(${target}
+    PRIVATE
+      doctest::doctest
+      ${ARG_LIBRARIES}
+  )
+
+  target_compile_definitions(${target}
+    PRIVATE
+      _SILENCE_CXX20_CISO646_REMOVED_WARNING
+  )
+
+  target_compile_options(${target}
+    PRIVATE
+      $<$<CXX_COMPILER_ID:Clang>:-Wno-cpp>
+  )
+
+  target_compile_features(${target}
+    PRIVATE
+      cxx_std_23
+  )
+
+  set_target_properties(${target}
+    PROPERTIES
+      CXX_EXTENSIONS OFF
+  )
+
+  sivra_apply_build_options(${target})
+
+  add_test(
+    NAME ${target}
+    COMMAND ${target}
+  )
+
+  if(SIVRA_ENABLE_SANITIZERS)
+    set_tests_properties(${target}
+      PROPERTIES
+        ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0"
+    )
+  endif()
+endfunction()
+
+add_sivra_test(sivra-core-tests
+  SOURCES
     unit/core/core_tests.cpp
-    unit/canonicalizer/algebraic_rules_tests.cpp
-    unit/canonicalizer/engine_rebuild_tests.cpp
-    unit/canonicalizer/options_tests.cpp
+  LIBRARIES
+    sivra::core
+)
+
+add_sivra_test(sivra-ir-tests
+  SOURCES
     unit/ir/builtin_operations_tests.cpp
     unit/ir/graph_builder_tests.cpp
+    unit/ir/operation_attribute_tests.cpp
     unit/ir/operation_catalogue_tests.cpp
+    unit/ir/operation_signature_tests.cpp
+    unit/ir/structural_tests.cpp
     unit/ir/value_type_tests.cpp
-    unit/main.cpp
-    support/expression_format.cpp
-)
-
-if(SIVRA_BUILD_COMPAT_IMPORTERS)
-  target_sources(sivra-unittests
-    PRIVATE
-      compatibility/raw_expression_json_tests.cpp
-  )
-endif()
-
-target_link_libraries(sivra-unittests
-  PRIVATE
-    sivra::canonicalizer
+  LIBRARIES
     sivra::ir
-    doctest::doctest
+)
+
+add_sivra_test(sivra-canonicalizer-tests
+  SOURCES
+    unit/canonicalizer/algebraic_rules_tests.cpp
+    unit/canonicalizer/configuration_tests.cpp
+    unit/canonicalizer/engine_rebuild_tests.cpp
+    unit/canonicalizer/infrastructure_tests.cpp
+    support/expression_format.cpp
+  LIBRARIES
+    sivra::canonicalizer
+)
+
+set(sivra_unit_test_targets
+  sivra-core-tests
+  sivra-ir-tests
+  sivra-canonicalizer-tests
 )
 
 if(SIVRA_BUILD_COMPAT_IMPORTERS)
-  target_link_libraries(sivra-unittests
-    PRIVATE
+  add_sivra_test(sivra-compatibility-tests
+    SOURCES
+      compatibility/raw_expression_json_tests.cpp
+    LIBRARIES
       sivra-compat-raw-expression-json
   )
+  list(APPEND sivra_unit_test_targets sivra-compatibility-tests)
 endif()
 
-target_compile_definitions(sivra-unittests
-  PRIVATE
-    _SILENCE_CXX20_CISO646_REMOVED_WARNING
-)
-
-target_compile_options(sivra-unittests
-  PRIVATE
-    $<$<CXX_COMPILER_ID:Clang>:-Wno-cpp>
-)
-
-target_compile_features(sivra-unittests
-  PRIVATE
-    cxx_std_23
-)
-
-set_target_properties(sivra-unittests
-  PROPERTIES
-    CXX_EXTENSIONS OFF
-)
-
-add_test(
-  NAME sivra-unittests
-  COMMAND sivra-unittests
+add_custom_target(sivra-unittests
+  DEPENDS ${sivra_unit_test_targets}
 )
 
 if(SIVRA_BUILD_CLI)
@@ -65,4 +106,23 @@ if(SIVRA_BUILD_CLI)
     NAME sivra-cli-smoke
     COMMAND sivra dot-product
   )
+  if(SIVRA_ENABLE_SANITIZERS)
+    set_tests_properties(sivra-cli-smoke
+      PROPERTIES
+        ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0"
+    )
+  endif()
 endif()
+
+add_test(
+  NAME sivra-package-smoke
+  COMMAND
+    ${CMAKE_COMMAND}
+    -DSIVRA_BINARY_DIR=${PROJECT_BINARY_DIR}
+    -DSIVRA_SMOKE_SOURCE_DIR=${PROJECT_SOURCE_DIR}/cmake/package-smoke
+    -DSIVRA_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+    -DSIVRA_GENERATOR=${CMAKE_GENERATOR}
+    -DSIVRA_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DSIVRA_ENABLE_SANITIZERS=${SIVRA_ENABLE_SANITIZERS}
+    -P ${PROJECT_SOURCE_DIR}/cmake/run-package-smoke.cmake
+)

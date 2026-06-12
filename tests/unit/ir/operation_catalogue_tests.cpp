@@ -5,6 +5,7 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <memory>
 #include <stdexcept>
 
 namespace {
@@ -36,6 +37,14 @@ TEST_CASE(
   CHECK((*catalogue)->at("first").id() == (*identifiers)[0]);
   CHECK((*catalogue)->at("second").name() == "second");
   CHECK((*catalogue)->operations().size() == 2);
+  CHECK((*catalogue)->find(sivra::ir::operation_key("first")) != nullptr);
+  CHECK((*catalogue)->find(sivra::ir::operation_key("first", 2)) == nullptr);
+  CHECK((*catalogue)->find_by_name("second") != nullptr);
+  CHECK((*catalogue)->find_by_name("missing") == nullptr);
+
+  const auto mutation = builder.register_operation(registration("third"));
+  REQUIRE(!mutation.has_value());
+  CHECK(mutation.error().front().code == "ir.catalogue.frozen");
 }
 
 TEST_CASE(
@@ -57,6 +66,29 @@ TEST_CASE(
 }
 
 TEST_CASE(
+  "operation catalogue keys include stable versions"
+) {
+  sivra::ir::operation_catalogue_builder builder;
+  auto first = registration("operation");
+  auto second = registration("operation");
+  first.key = sivra::ir::operation_key("operation", 1);
+  first.name = "operation.v1";
+  second.key = sivra::ir::operation_key("operation", 2);
+  second.name = "operation.v2";
+
+  const std::array registrations{std::move(first), std::move(second)};
+  const auto identifiers = builder.register_operations(registrations);
+  REQUIRE(identifiers.has_value());
+  const auto catalogue = std::move(builder).freeze();
+  REQUIRE(catalogue.has_value());
+
+  CHECK((*catalogue)->find(sivra::ir::operation_key("operation", 1))->id() == (*identifiers)[0]);
+  CHECK((*catalogue)->find(sivra::ir::operation_key("operation", 2))->id() == (*identifiers)[1]);
+  CHECK((*catalogue)->at("operation").id() == (*identifiers)[0]);
+  CHECK((*catalogue)->contains("operation"));
+}
+
+TEST_CASE(
   "operation catalogue validates signatures"
 ) {
   sivra::ir::operation_catalogue_builder builder;
@@ -66,10 +98,14 @@ TEST_CASE(
       .name = "invalid",
       .signature =
         {
-          .minimum_operands = 3,
-          .maximum_operands = 2,
-          .operands_match_result = true,
+          .arity =
+            {
+              .minimum = 3,
+              .maximum = 2,
+            },
+          .operand_types = sivra::ir::operand_type_constraint::same_as_result,
         },
+      .attribute_schema = {},
       .semantics = {},
     }
   );
@@ -101,4 +137,67 @@ TEST_CASE(
   CHECK(!operations.catalogue->contains("constant"));
   CHECK(!operations.catalogue->contains("symbol"));
   CHECK(!operations.catalogue->contains("memory_load"));
+}
+
+TEST_CASE(
+  "catalogue compatibility identifiers are independent of registration order"
+) {
+  sivra::ir::operation_catalogue_builder lhs_builder;
+  sivra::ir::operation_catalogue_builder rhs_builder;
+  const std::array lhs_registrations{registration("first"), registration("second")};
+  const std::array rhs_registrations{registration("second"), registration("first")};
+  REQUIRE(lhs_builder.register_operations(lhs_registrations).has_value());
+  REQUIRE(rhs_builder.register_operations(rhs_registrations).has_value());
+
+  const auto lhs = std::move(lhs_builder).freeze();
+  const auto rhs = std::move(rhs_builder).freeze();
+  REQUIRE(lhs.has_value());
+  REQUIRE(rhs.has_value());
+  CHECK((*lhs)->compatibility_id() == (*rhs)->compatibility_id());
+}
+
+TEST_CASE(
+  "catalogue compatibility identifiers include signature and attribute semantics"
+) {
+  sivra::ir::operation_catalogue_builder lhs_builder;
+  sivra::ir::operation_catalogue_builder rhs_builder;
+  auto lhs_registration = registration("operation");
+  auto rhs_registration = registration("operation");
+  rhs_registration.signature.arity.maximum = 1;
+  REQUIRE(lhs_builder.register_operation(std::move(lhs_registration)).has_value());
+  REQUIRE(rhs_builder.register_operation(std::move(rhs_registration)).has_value());
+
+  const auto lhs = std::move(lhs_builder).freeze();
+  const auto rhs = std::move(rhs_builder).freeze();
+  REQUIRE(lhs.has_value());
+  REQUIRE(rhs.has_value());
+  CHECK((*lhs)->compatibility_id() != (*rhs)->compatibility_id());
+}
+
+TEST_CASE(
+  "graphs retain catalogue lifetime after the builder and caller reference are destroyed"
+) {
+  const auto make_graph = [] {
+    sivra::ir::operation_catalogue_builder builder;
+    const auto operation =
+      sivra::test_support::require_value(builder.register_operation(registration("operation")));
+    auto catalogue = sivra::test_support::require_value(std::move(builder).freeze());
+    sivra::ir::expression_graph graph(catalogue);
+    sivra::ir::graph_builder graph_builder(graph);
+    const auto lhs = sivra::test_support::require_value(
+      graph_builder.make_symbol("lhs", sivra::ir::value_type::f32())
+    );
+    const auto rhs = sivra::test_support::require_value(
+      graph_builder.make_symbol("rhs", sivra::ir::value_type::f32())
+    );
+    const std::array operands{lhs, rhs};
+    static_cast<void>(sivra::test_support::require_value(
+      graph_builder.apply(operation, operands, sivra::ir::value_type::f32())
+    ));
+    return graph;
+  };
+
+  const auto graph = make_graph();
+  CHECK(graph.catalogue().at("operation").name() == "operation");
+  CHECK(graph.validate().has_value());
 }

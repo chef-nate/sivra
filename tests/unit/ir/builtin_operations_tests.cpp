@@ -39,8 +39,8 @@ TEST_CASE(
   const auto& add = operations.catalogue->operation(operations.builtins.add);
   const auto& subtract = operations.catalogue->operation(operations.builtins.subtract);
 
-  CHECK(add.signature().minimum_operands == 2);
-  CHECK(!add.signature().maximum_operands.has_value());
-  CHECK(subtract.signature().minimum_operands == 2);
-  CHECK(subtract.signature().maximum_operands == 2);
+  CHECK(add.signature().arity.minimum == 2);
+  CHECK(!add.signature().arity.maximum.has_value());
+  CHECK(subtract.signature().arity.minimum == 2);
+  CHECK(subtract.signature().arity.maximum == 2);
 }

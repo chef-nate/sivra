@@ -2,7 +2,6 @@
 
 #include <doctest/doctest.h>
 
-#include <stdexcept>
 #include <string_view>
 
 namespace {
@@ -39,25 +38,31 @@ TEST_CASE(
 ) {
   const auto loaded = sivra::compat::parse_raw_expression_json(single_memory_load);
 
-  CHECK(loaded.graph.size() == 1);
-  CHECK(loaded.root.index() == 0);
-  CHECK(loaded.root.owner() == loaded.graph.owner());
-  CHECK(loaded.catalogue == loaded.graph.shared_catalogue());
-  REQUIRE(loaded.external_values.size() == 1);
-  CHECK(loaded.external_values[0].base_register == "rdi");
-  CHECK(loaded.external_values[0].offset == 12);
-  const auto* external = loaded.graph.at(loaded.root).get_if_external_value();
+  REQUIRE(loaded.has_value());
+  CHECK(loaded->graph.size() == 1);
+  CHECK(loaded->root.index() == 0);
+  CHECK(loaded->root.owner() == loaded->graph.owner());
+  CHECK(loaded->catalogue == loaded->graph.shared_catalogue());
+  REQUIRE(loaded->external_values.size() == 1);
+  CHECK(loaded->external_values[0].base_register == "rdi");
+  CHECK(loaded->external_values[0].offset == 12);
+  const auto* external = loaded->graph.at(loaded->root).get_if_external_value();
   REQUIRE(external != nullptr);
   CHECK(external->value.index() == 0);
-  CHECK(external->value.owner() == loaded.catalogue->owner());
+  CHECK(external->value.owner() == loaded->catalogue->owner());
 }
 
 TEST_CASE(
-  "raw expression compatibility importer rejects an unsupported format"
+  "raw expression compatibility importer returns diagnostics for unsupported input"
 ) {
   constexpr std::string_view unsupported = R"json(
     {"format":"unsupported","root":0,"nodes":[]}
   )json";
 
-  CHECK_THROWS_AS(sivra::compat::parse_raw_expression_json(unsupported), std::runtime_error);
+  const auto loaded = sivra::compat::parse_raw_expression_json(unsupported);
+
+  REQUIRE(!loaded.has_value());
+  REQUIRE(loaded.error().size() == 1);
+  CHECK(loaded.error().front().code == "compat.raw_expression_json.invalid_input");
+  CHECK(loaded.error().front().message == "unsupported raw expression JSON format");
 }

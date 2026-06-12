@@ -22,6 +22,15 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name": "clang-sanitized",
+      "inherits": "clang-debug",
+      "displayName": "Clang Sanitized",
+      "binaryDir": "${sourceDir}/build/clang-sanitized",
+      "cacheVariables": {
+        "SIVRA_ENABLE_SANITIZERS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -32,6 +41,10 @@
     {
       "name": "clang-release",
       "configurePreset": "clang-release"
+    },
+    {
+      "name": "clang-sanitized",
+      "configurePreset": "clang-sanitized"
     }
   ]
 }

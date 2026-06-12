@@ -15,37 +15,49 @@ public:
     expression_graph& graph
   );
 
-  core::result_t<node_id> make_constant(
+  [[nodiscard]] core::result_t<node_id> make_constant(
     constant_value value
-  );
+  ) const;
 
-  core::result_t<node_id> make_symbol(
+  [[nodiscard]] core::result_t<node_id> make_symbol(
     std::string name,
     value_type result_type
-  );
+  ) const;
 
-  core::result_t<node_id> make_external_value(
+  [[nodiscard]] core::result_t<node_id> make_external_value(
     value_type result_type
-  );
+  ) const;
 
-  core::result_t<node_id> make_external_value(
+  [[nodiscard]] core::result_t<node_id> make_external_value(
     external_value_id value,
     value_type result_type
-  );
+  ) const;
 
-  core::result_t<node_id> make_unknown(
+  [[nodiscard]] core::result_t<node_id> make_unknown(
     std::string reason,
     value_type result_type
-  );
+  ) const;
 
-  core::result_t<node_id> apply(
+  [[nodiscard]] core::result_t<node_id> apply(
     operation_id operation,
     std::span<const node_id> operands,
     value_type result_type
-  );
+  ) const;
+
+  [[nodiscard]] core::result_t<node_id> apply(
+    operation_id operation,
+    std::span<const node_id> operands,
+    operation_attributes attributes,
+    value_type result_type
+  ) const;
+
+  [[nodiscard]] core::result_t<node_id> make_merge(
+    std::span<const node_id> incoming,
+    value_type result_type
+  ) const;
 
 private:
-  core::result_t<void> validate_operands(
+  [[nodiscard]] core::result_t<void> validate_operands(
     std::span<const node_id> operands
   ) const;
 

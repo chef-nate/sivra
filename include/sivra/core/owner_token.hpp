@@ -15,7 +15,7 @@ public:
     return owner_token(value);
   }
 
-  constexpr std::uint64_t value() const { return m_value; }
+  [[nodiscard]] constexpr std::uint64_t value() const { return m_value; }
 
   auto operator<=>(
     const owner_token&

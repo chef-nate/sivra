@@ -12,7 +12,7 @@ struct constant_node {
 };
 
 struct symbol_node {
-  std::string name;
+  symbol_id symbol;
 };
 
 struct external_value_node {
