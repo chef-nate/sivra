@@ -49,7 +49,7 @@ TEST_CASE(
   const auto* external = loaded->graph.at(loaded->root).get_if_external_value();
   REQUIRE(external != nullptr);
   CHECK(external->value.index() == 0);
-  CHECK(external->value.owner() == loaded->catalogue->owner());
+  CHECK(external->value.owner() == loaded->graph.external_value_owner());
 }
 
 TEST_CASE(

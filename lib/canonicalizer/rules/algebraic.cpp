@@ -103,7 +103,8 @@ rewrite_result apply_associative_flattening(
     const auto& child = context.node(operand);
     const auto* application = child.get_if_operation();
     if (application == nullptr || application->operation != subject.operation ||
-        child.result_type() != subject.result_type || application->operands.size() < 2) {
+        child.result_type() != subject.result_type ||
+        application->attributes != subject.attributes || application->operands.size() < 2) {
       flattened.push_back(operand);
       continue;
     }

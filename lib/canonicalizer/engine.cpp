@@ -23,7 +23,10 @@ public:
   )
       : m_source(source),
         m_configuration(configuration),
-        m_output(source.shared_catalogue()),
+        m_output(
+          source.shared_catalogue(),
+          source.external_value_owner()
+        ),
         m_builder(m_output),
         m_mapping(
           source.owner(),

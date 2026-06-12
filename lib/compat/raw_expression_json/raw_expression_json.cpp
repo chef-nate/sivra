@@ -173,16 +173,22 @@ core::result_t<loaded_expression_graph> parse_raw_expression_json(
         children.push_back(*mapped_nodes[child]);
       }
 
-      core::result_t<ir::node_id> mapped = [&] {
-        if (node.operation == "memory_load") {
-          external_values.push_back(
-            raw_memory_operand{
-              .base_register = node.base_register,
-              .offset = node.offset,
-            }
-          );
-          return builder.make_external_value(node.result_type);
+      if (node.operation == "memory_load") {
+        auto mapped = builder.make_external_value(node.result_type);
+        if (!mapped.has_value()) {
+          return std::unexpected(std::move(mapped.error()));
         }
+        external_values.push_back(
+          raw_memory_operand{
+            .base_register = node.base_register,
+            .offset = node.offset,
+          }
+        );
+        mapped_nodes[node.id] = *mapped;
+        continue;
+      }
+
+      core::result_t<ir::node_id> mapped = [&] {
         if (node.operation == "multiply") {
           return builder.apply(builtins->multiply, children, node.result_type);
         }

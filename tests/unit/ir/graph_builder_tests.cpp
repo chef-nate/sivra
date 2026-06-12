@@ -1,6 +1,7 @@
 #include "../../support/graph_builder_fixture.hpp"
 
 #include <sivra/ir/expression_node.hpp>
+#include <sivra/ir/structural.hpp>
 
 #include <doctest/doctest.h>
 
@@ -134,7 +135,7 @@ TEST_CASE(
 }
 
 TEST_CASE(
-  "external value identifiers survive rebuilding against the same catalogue"
+  "external value identifiers survive rebuilding against the same external value scope"
 ) {
   sivra::test_support::graph_builder_fixture source;
   const auto external = sivra::test_support::require_value(
@@ -142,7 +143,9 @@ TEST_CASE(
   );
   const auto external_id = source.graph.at(external).get_if_external_value()->value;
 
-  sivra::ir::expression_graph rebuilt(source.graph.shared_catalogue());
+  sivra::ir::expression_graph rebuilt(
+    source.graph.shared_catalogue(), source.graph.external_value_owner()
+  );
   sivra::ir::graph_builder builder(rebuilt);
   const auto copied = sivra::test_support::require_value(
     builder.make_external_value(external_id, sivra::ir::value_type::f32())
@@ -152,7 +155,31 @@ TEST_CASE(
 }
 
 TEST_CASE(
-  "external value identifiers reject a different catalogue scope"
+  "auto-allocated external value identifiers use distinct graph scopes"
+) {
+  const auto operations = sivra::test_support::make_test_catalogue();
+  sivra::ir::expression_graph lhs_graph(operations.catalogue);
+  sivra::ir::expression_graph rhs_graph(operations.catalogue);
+  sivra::ir::graph_builder lhs_builder(lhs_graph);
+  sivra::ir::graph_builder rhs_builder(rhs_graph);
+
+  const auto lhs = sivra::test_support::require_value(
+    lhs_builder.make_external_value(sivra::ir::value_type::f32())
+  );
+  const auto rhs = sivra::test_support::require_value(
+    rhs_builder.make_external_value(sivra::ir::value_type::f32())
+  );
+  const auto lhs_external = lhs_graph.at(lhs).get_if_external_value()->value;
+  const auto rhs_external = rhs_graph.at(rhs).get_if_external_value()->value;
+  sivra::ir::structural_context structural;
+
+  CHECK(lhs_external.index() == rhs_external.index());
+  CHECK(lhs_external.owner() != rhs_external.owner());
+  CHECK(!structural.equal(lhs_graph, lhs, rhs_graph, rhs));
+}
+
+TEST_CASE(
+  "external value identifiers reject a different external value scope"
 ) {
   sivra::test_support::graph_builder_fixture source;
   sivra::test_support::graph_builder_fixture target;

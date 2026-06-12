@@ -196,6 +196,7 @@ const std::vector<std::byte>& structural_context::encoding(
     } else if (const auto* symbol = node.get_if_symbol()) {
       append_string(encoded, graph.symbol_name(symbol->symbol));
     } else if (const auto* external = node.get_if_external_value()) {
+      append_u64(encoded, external->value.owner().value());
       append_u32(encoded, external->value.index());
     } else if (const auto* unknown = node.get_if_unknown()) {
       append_string(encoded, unknown->reason);

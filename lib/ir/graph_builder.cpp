@@ -15,6 +15,9 @@ graph_builder::graph_builder(
 core::result_t<node_id> graph_builder::make_constant(
   constant_value value
 ) const {
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
   const auto result_type = value.result_type();
   return m_graph->append_validated(result_type, constant_node{.value = std::move(value)});
 }
@@ -26,6 +29,12 @@ core::result_t<node_id> graph_builder::make_symbol(
   if (name.empty()) {
     return core::fail<node_id>("ir.graph.empty_symbol", "symbol name must not be empty");
   }
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
+  if (auto capacity = m_graph->can_allocate_symbol(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
   const auto symbol = m_graph->allocate_symbol_id(std::move(name));
   return m_graph->append_validated(result_type, symbol_node{.symbol = symbol});
 }
@@ -33,6 +42,12 @@ core::result_t<node_id> graph_builder::make_symbol(
 core::result_t<node_id> graph_builder::make_external_value(
   const value_type result_type
 ) const {
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
+  if (auto capacity = m_graph->can_allocate_external_value(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
   return make_external_value(m_graph->allocate_external_value_id(), result_type);
 }
 
@@ -40,10 +55,13 @@ core::result_t<node_id> graph_builder::make_external_value(
   const external_value_id value,
   const value_type result_type
 ) const {
-  if (value.owner() != m_graph->catalogue().owner()) {
+  if (value.owner() != m_graph->external_value_owner()) {
     return core::fail<node_id>(
-      "ir.graph.foreign_external_value", "external_value_id belongs to another catalogue scope"
+      "ir.graph.foreign_external_value", "external_value_id belongs to another external value scope"
     );
+  }
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
   }
   return m_graph->append_validated(result_type, external_value_node{.value = value});
 }
@@ -54,6 +72,9 @@ core::result_t<node_id> graph_builder::make_unknown(
 ) const {
   if (reason.empty()) {
     return core::fail<node_id>("ir.graph.empty_unknown_reason", "unknown reason must not be empty");
+  }
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
   }
   return m_graph->append_validated(result_type, unknown_node{.reason = std::move(reason)});
 }
@@ -104,6 +125,9 @@ core::result_t<node_id> graph_builder::apply(
       !validated.has_value()) {
     return std::unexpected(std::move(validated.error()));
   }
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
+  }
 
   return m_graph->append_validated(
     result_type,
@@ -133,6 +157,9 @@ core::result_t<node_id> graph_builder::make_merge(
         "ir.graph.merge_type_mismatch", "merge input type does not match result type"
       );
     }
+  }
+  if (auto capacity = m_graph->can_append_node(); !capacity.has_value()) {
+    return std::unexpected(std::move(capacity.error()));
   }
   return m_graph->append_validated(
     result_type, merge_node{.incoming = std::vector<node_id>(incoming.begin(), incoming.end())}

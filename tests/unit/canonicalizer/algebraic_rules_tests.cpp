@@ -7,6 +7,7 @@
 
 #include <doctest/doctest.h>
 
+#include <array>
 #include <string>
 
 namespace {
@@ -64,6 +65,65 @@ TEST_CASE(
   const auto root = fixture.apply(fixture.operations.builtins.add, {a, nested});
 
   CHECK(canonical_expression(fixture, root) == "add(a, multiply(b, c))");
+}
+
+TEST_CASE(
+  "flattening stops when nested operation attributes differ"
+) {
+  const auto schema = sivra::test_support::require_value(
+    sivra::ir::operation_attribute_schema::create(
+      std::array{
+        sivra::ir::operation_attribute_field{
+          .key = "lane",
+          .kind = sivra::ir::operation_attribute_kind::integer,
+          .required = true,
+        },
+      }
+    )
+  );
+  auto operation = sivra::test_support::test_operation(
+    "tagged",
+    {
+      .traits = sivra::ir::operation_trait::associative,
+    },
+    {
+      .arity =
+        {
+          .minimum = 2,
+          .maximum = std::nullopt,
+        },
+      .operand_types = sivra::ir::operand_type_constraint::same_as_result,
+    }
+  );
+  operation.attribute_schema = schema;
+  sivra::test_support::graph_builder_fixture fixture({std::move(operation)});
+  const auto custom = fixture.operations.custom.front();
+  const auto child_attributes = sivra::test_support::require_value(
+    sivra::ir::operation_attributes::create(
+      std::array{
+        sivra::ir::operation_attribute{.key = "lane", .value = std::int64_t{1}},
+      }
+    )
+  );
+  const auto parent_attributes = sivra::test_support::require_value(
+    sivra::ir::operation_attributes::create(
+      std::array{
+        sivra::ir::operation_attribute{.key = "lane", .value = std::int64_t{2}},
+      }
+    )
+  );
+  const auto b = fixture.symbol("b");
+  const auto c = fixture.symbol("c");
+  const std::array child_operands{b, c};
+  const auto nested = sivra::test_support::require_value(
+    fixture.builder.apply(custom, child_operands, child_attributes, sivra::ir::value_type::f32())
+  );
+  const std::array parent_operands{fixture.symbol("a"), nested};
+  const auto root = sivra::test_support::require_value(
+    fixture.builder.apply(custom, parent_operands, parent_attributes, sivra::ir::value_type::f32())
+  );
+
+  CHECK(canonical_expression(fixture, root) == "tagged(a, tagged(b, c))");
 }
 
 TEST_CASE(

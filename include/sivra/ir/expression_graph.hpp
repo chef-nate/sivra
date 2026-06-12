@@ -21,6 +21,11 @@ public:
     std::shared_ptr<const operation_catalogue> catalogue
   );
 
+  expression_graph(
+    std::shared_ptr<const operation_catalogue> catalogue,
+    core::owner_token external_value_owner
+  );
+
   [[nodiscard]] const expression_node& at(
     node_id id
   ) const;
@@ -38,6 +43,7 @@ public:
   [[nodiscard]] const operation_catalogue& catalogue() const;
   [[nodiscard]] std::shared_ptr<const operation_catalogue> shared_catalogue() const;
   [[nodiscard]] core::owner_token owner() const;
+  [[nodiscard]] core::owner_token external_value_owner() const;
   [[nodiscard]] core::result_t<void> validate() const;
   [[nodiscard]] std::string_view symbol_name(
     symbol_id symbol
@@ -45,6 +51,10 @@ public:
 
 private:
   friend class graph_builder;
+
+  [[nodiscard]] core::result_t<void> can_append_node() const;
+  [[nodiscard]] core::result_t<void> can_allocate_external_value() const;
+  [[nodiscard]] core::result_t<void> can_allocate_symbol() const;
 
   node_id append_validated(
     value_type result_type,
@@ -57,6 +67,7 @@ private:
   );
 
   core::owner_token m_owner;
+  core::owner_token m_external_value_owner;
   std::shared_ptr<const operation_catalogue> m_catalogue;
   std::vector<expression_node> m_nodes;
   std::vector<std::string> m_symbol_names;

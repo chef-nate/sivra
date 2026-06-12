@@ -87,11 +87,11 @@ core::result_t<void> validate_graph(
       continue;
     }
     if (const auto* external = node.get_if_external_value()) {
-      if (external->value.owner() != graph.catalogue().owner()) {
+      if (external->value.owner() != graph.external_value_owner()) {
         add_error(
           diagnostics,
           "ir.validation.external_owner",
-          "external value identifier belongs to another catalogue"
+          "external value identifier belongs to another external value scope"
         );
       }
       continue;
