@@ -35,6 +35,7 @@ function(add_sivra_test target)
       CXX_EXTENSIONS OFF
   )
 
+  sivra_configure_executable_output(${target})
   sivra_apply_build_options(${target})
 
   add_test(

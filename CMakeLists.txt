@@ -21,6 +21,27 @@ option(
 )
 option(SIVRA_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
 option(SIVRA_ENABLE_COVERAGE "Enable compiler coverage instrumentation" OFF)
+set(SIVRA_RUNTIME_OUTPUT_VARIANT
+    ""
+    CACHE STRING
+    "Name of the bin/ subdirectory used for built executables."
+)
+
+if(NOT SIVRA_RUNTIME_OUTPUT_VARIANT)
+  if(CMAKE_BINARY_DIR MATCHES "/([^/]+)$")
+    set(SIVRA_RUNTIME_OUTPUT_VARIANT "${CMAKE_MATCH_1}")
+  elseif(CMAKE_BUILD_TYPE)
+    string(TOLOWER "${CMAKE_BUILD_TYPE}" SIVRA_RUNTIME_OUTPUT_VARIANT)
+  else()
+    set(SIVRA_RUNTIME_OUTPUT_VARIANT "default")
+  endif()
+endif()
+
+set(SIVRA_RUNTIME_OUTPUT_DIRECTORY
+    "${PROJECT_SOURCE_DIR}/bin/${SIVRA_RUNTIME_OUTPUT_VARIANT}"
+    CACHE PATH
+    "Directory where SIVRA executable targets are written."
+)
 
 function(sivra_apply_build_options target)
   if(SIVRA_ENABLE_SANITIZERS)
@@ -53,6 +74,17 @@ function(sivra_apply_build_options target)
       message(FATAL_ERROR "SIVRA_ENABLE_COVERAGE requires Clang or GCC")
     endif()
   endif()
+endfunction()
+
+function(sivra_configure_executable_output target)
+  set_target_properties(${target}
+    PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${SIVRA_RUNTIME_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG "${SIVRA_RUNTIME_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE "${SIVRA_RUNTIME_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${SIVRA_RUNTIME_OUTPUT_DIRECTORY}"
+      RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${SIVRA_RUNTIME_OUTPUT_DIRECTORY}"
+  )
 endfunction()
 
 if(SIVRA_BUILD_CLI)

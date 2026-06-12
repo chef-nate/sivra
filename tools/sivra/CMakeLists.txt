@@ -33,4 +33,5 @@ set_target_properties(sivra
     CXX_EXTENSIONS OFF
 )
 
+sivra_configure_executable_output(sivra)
 sivra_apply_build_options(sivra)
