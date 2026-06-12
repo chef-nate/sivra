@@ -75,7 +75,11 @@ add_sivra_test(sivra-canonicalizer-tests
     unit/canonicalizer/algebraic_rules_tests.cpp
     unit/canonicalizer/configuration_tests.cpp
     unit/canonicalizer/engine_rebuild_tests.cpp
+    unit/canonicalizer/evaluator_tests.cpp
     unit/canonicalizer/infrastructure_tests.cpp
+    unit/canonicalizer/scheduler_tests.cpp
+    unit/canonicalizer/structural_rules_tests.cpp
+    unit/canonicalizer/worklist_tests.cpp
     support/expression_format.cpp
   LIBRARIES
     sivra::canonicalizer

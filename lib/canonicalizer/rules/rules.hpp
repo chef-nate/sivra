@@ -1,25 +1,20 @@
 #pragma once
 
-#include "../rewrite.hpp"
-
-#include <sivra/canonicalizer/rule.hpp>
-
-#include <span>
+#include <sivra/canonicalizer/rewrite.hpp>
 
 namespace sivra::canonicalizer {
 
-using apply_rule_fn = rewrite_result (*)(
+rewrite_result apply_associative_flattening(
   rewrite_context& context,
   const rewrite_subject& subject
 );
 
-struct rule_descriptor {
-  rule_id id;
-  pass_phase phase;
-  apply_rule_fn apply;
-};
+rewrite_result apply_commutative_ordering(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
 
-rewrite_result apply_associative_flattening(
+rewrite_result apply_idempotent_deduplication(
   rewrite_context& context,
   const rewrite_subject& subject
 );
@@ -34,6 +29,19 @@ rewrite_result apply_annihilator_collapse(
   const rewrite_subject& subject
 );
 
-std::span<const rule_descriptor> scheduled_rules();
+rewrite_result apply_same_operand_simplification(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_constant_folding(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_coefficient_collection(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
 
 } // namespace sivra::canonicalizer

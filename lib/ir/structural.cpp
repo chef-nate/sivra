@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <map>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -34,14 +35,6 @@ void append_u64(
   for (unsigned shift = 0; shift < 64; shift += 8) {
     append_u8(output, static_cast<std::uint8_t>(value >> shift));
   }
-}
-
-void append_bytes(
-  std::vector<std::byte>& output,
-  std::span<const std::byte> bytes
-) {
-  append_u64(output, bytes.size());
-  output.insert(output.end(), bytes.begin(), bytes.end());
 }
 
 void append_string(
@@ -140,21 +133,75 @@ std::strong_ordering compare_bytes(
 
 namespace sivra::ir {
 
+structural_digest structural_context::digest_record(
+  std::span<const std::byte> data,
+  std::span<const node_id> children,
+  std::span<const node_record> records
+) const {
+  std::size_t forward = 0;
+  std::size_t reverse = 0;
+  for (const auto byte : data) {
+    core::hash_combine(forward, std::to_integer<std::uint8_t>(byte));
+  }
+  core::hash_combine(reverse, data.size());
+  for (auto iterator = data.rbegin(); iterator != data.rend(); ++iterator) {
+    core::hash_combine(reverse, std::to_integer<std::uint8_t>(*iterator));
+  }
+  for (const auto child : children) {
+    const auto& child_digest = records[child.index()].digest;
+    core::hash_combine(forward, child_digest.words[0], child_digest.words[1]);
+    core::hash_combine(reverse, child_digest.words[1], child_digest.words[0]);
+  }
+  return structural_digest{.words = {forward, reverse}};
+}
+
+std::strong_ordering structural_context::compare_records(
+  const expression_graph& lhs_graph,
+  node_id lhs,
+  const expression_graph& rhs_graph,
+  node_id rhs,
+  std::map<
+    node_pair_key,
+    std::strong_ordering
+  >& compared
+) {
+  const node_pair_key key{
+    .lhs_owner = lhs.owner(),
+    .lhs_index = lhs.index(),
+    .rhs_owner = rhs.owner(),
+    .rhs_index = rhs.index(),
+  };
+  if (const auto found = compared.find(key); found != compared.end()) {
+    return found->second;
+  }
+
+  const auto& lhs_record = record(lhs_graph, lhs);
+  const auto& rhs_record = record(rhs_graph, rhs);
+  if (const auto data_ordering = compare_bytes(lhs_record.data, rhs_record.data);
+      data_ordering != std::strong_ordering::equal) {
+    compared.emplace(key, data_ordering);
+    return data_ordering;
+  }
+
+  for (std::size_t index = 0; index < lhs_record.children.size(); ++index) {
+    const auto child_ordering = compare_records(
+      lhs_graph, lhs_record.children[index], rhs_graph, rhs_record.children[index], compared
+    );
+    if (child_ordering != std::strong_ordering::equal) {
+      compared.emplace(key, child_ordering);
+      return child_ordering;
+    }
+  }
+
+  compared.emplace(key, std::strong_ordering::equal);
+  return std::strong_ordering::equal;
+}
+
 structural_digest structural_context::hash(
   const expression_graph& graph,
   node_id root
 ) {
-  const auto& bytes = encoding(graph, root);
-  std::size_t forward = 0;
-  std::size_t reverse = 0;
-  for (const auto byte : bytes) {
-    core::hash_combine(forward, std::to_integer<std::uint8_t>(byte));
-  }
-  core::hash_combine(reverse, bytes.size());
-  for (auto iterator = bytes.rbegin(); iterator != bytes.rend(); ++iterator) {
-    core::hash_combine(reverse, std::to_integer<std::uint8_t>(*iterator));
-  }
-  return structural_digest{.words = {forward, reverse}};
+  return record(graph, root).digest;
 }
 
 bool structural_context::equal(
@@ -163,7 +210,7 @@ bool structural_context::equal(
   const expression_graph& rhs_graph,
   node_id rhs
 ) {
-  return encoding(lhs_graph, lhs) == encoding(rhs_graph, rhs);
+  return compare(lhs_graph, lhs, rhs_graph, rhs) == std::strong_ordering::equal;
 }
 
 std::strong_ordering structural_context::compare(
@@ -172,63 +219,67 @@ std::strong_ordering structural_context::compare(
   const expression_graph& rhs_graph,
   node_id rhs
 ) {
-  return compare_bytes(encoding(lhs_graph, lhs), encoding(rhs_graph, rhs));
+  std::map<node_pair_key, std::strong_ordering> compared;
+  return compare_records(lhs_graph, lhs, rhs_graph, rhs, compared);
 }
 
-const std::vector<std::byte>& structural_context::encoding(
+const structural_context::node_record& structural_context::record(
   const expression_graph& graph,
   node_id root
 ) {
   static_cast<void>(graph.at(root));
-  auto& graph_encodings = m_encodings[&graph];
-  graph_encodings.reserve(graph.size());
+  auto& graph_records = m_graphs[graph.owner()].records;
+  graph_records.reserve(graph.size());
 
-  while (graph_encodings.size() < graph.size()) {
-    const auto index = static_cast<std::uint32_t>(graph_encodings.size());
+  while (graph_records.size() < graph.size()) {
+    const auto index = static_cast<std::uint32_t>(graph_records.size());
     const auto id = node_id::unsafe_from_index(index, graph.owner());
     const auto& node = graph.at(id);
-    std::vector<std::byte> encoded;
-    append_u8(encoded, static_cast<std::uint8_t>(node.kind()));
-    append_type(encoded, node.result_type());
+    node_record current;
+    append_u8(current.data, static_cast<std::uint8_t>(node.kind()));
+    append_type(current.data, node.result_type());
 
     if (const auto* constant = node.get_if_constant()) {
-      append_constant(encoded, constant->value);
+      append_constant(current.data, constant->value);
     } else if (const auto* symbol = node.get_if_symbol()) {
-      append_string(encoded, graph.symbol_name(symbol->symbol));
+      append_string(current.data, graph.symbol_name(symbol->symbol));
     } else if (const auto* external = node.get_if_external_value()) {
-      append_u64(encoded, external->value.owner().value());
-      append_u32(encoded, external->value.index());
+      append_u64(current.data, external->value.owner().value());
+      append_u32(current.data, external->value.index());
     } else if (const auto* unknown = node.get_if_unknown()) {
-      append_string(encoded, unknown->reason);
+      append_string(current.data, unknown->reason);
     } else if (const auto* application = node.get_if_operation()) {
-      append_string(encoded, graph.catalogue().operation(application->operation).key());
+      append_string(current.data, graph.catalogue().operation(application->operation).key());
       append_u32(
-        encoded, graph.catalogue().operation(application->operation).stable_key().version()
+        current.data, graph.catalogue().operation(application->operation).stable_key().version()
       );
-      append_attributes(encoded, application->attributes);
-      append_u64(encoded, application->operands.size());
+      append_attributes(current.data, application->attributes);
+      append_u64(current.data, application->operands.size());
+      current.children.reserve(application->operands.size());
       for (const auto operand : application->operands) {
         if (operand.owner() != graph.owner() || operand.index() >= index) {
           throw std::invalid_argument("structural encoding requires an ordered expression DAG");
         }
-        append_bytes(encoded, graph_encodings[operand.index()]);
+        current.children.push_back(operand);
       }
     } else if (const auto* merge = node.get_if_merge()) {
-      append_u64(encoded, merge->incoming.size());
+      append_u64(current.data, merge->incoming.size());
+      current.children.reserve(merge->incoming.size());
       for (const auto incoming : merge->incoming) {
         if (incoming.owner() != graph.owner() || incoming.index() >= index) {
           throw std::invalid_argument("structural encoding requires an ordered expression DAG");
         }
-        append_bytes(encoded, graph_encodings[incoming.index()]);
+        current.children.push_back(incoming);
       }
     } else {
       throw std::logic_error("expression node has no structural payload");
     }
 
-    graph_encodings.push_back(std::move(encoded));
+    current.digest = digest_record(current.data, current.children, graph_records);
+    graph_records.push_back(std::move(current));
   }
 
-  return graph_encodings[root.index()];
+  return graph_records[root.index()];
 }
 
 } // namespace sivra::ir

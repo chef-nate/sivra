@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -74,6 +75,33 @@ std::vector<std::uint32_t> parse_children(
   return children;
 }
 
+std::ptrdiff_t checked_memory_offset(
+  std::ptrdiff_t displacement,
+  std::uint32_t memory_lane,
+  std::uint32_t element_bits
+) {
+  if (element_bits == 0 || element_bits % 8 != 0) {
+    throw std::runtime_error("raw expression memory load has invalid element width");
+  }
+
+  const auto element_bytes = static_cast<std::uint64_t>(element_bits / 8);
+  const auto lane = static_cast<std::uint64_t>(memory_lane);
+  if (lane != 0 && element_bytes > std::numeric_limits<std::uint64_t>::max() / lane) {
+    throw std::runtime_error("raw expression memory lane offset overflows");
+  }
+  const auto lane_offset = lane * element_bytes;
+  if (lane_offset > static_cast<std::uint64_t>(std::numeric_limits<std::ptrdiff_t>::max())) {
+    throw std::runtime_error("raw expression memory lane offset overflows");
+  }
+
+  const auto signed_lane_offset = static_cast<std::ptrdiff_t>(lane_offset);
+  if (displacement > 0 &&
+      signed_lane_offset > std::numeric_limits<std::ptrdiff_t>::max() - displacement) {
+    throw std::runtime_error("raw expression memory displacement overflows");
+  }
+  return displacement + signed_lane_offset;
+}
+
 raw_node parse_node(
   const nlohmann::json& node
 ) {
@@ -85,14 +113,28 @@ raw_node parse_node(
   };
 
   if (parsed.kind == "memory_load") {
+    if (!parsed.children.empty()) {
+      throw std::runtime_error("raw expression memory load must not have children");
+    }
     const auto memory_lane = node.at("memory_lane").get<std::uint32_t>();
     const auto element_bits = node.at("element_bits").get<std::uint32_t>();
     const auto& memory = node.at("memory");
+    if (element_bits != parsed.result_type.element_bit_width()) {
+      throw std::runtime_error("raw expression memory load element width does not match type");
+    }
+    if (memory.contains("size_bits")) {
+      const auto size_bits = memory.at("size_bits").get<std::uint32_t>();
+      if (size_bits == 0 || element_bits == 0 || size_bits % element_bits != 0 ||
+          memory_lane >= size_bits / element_bits) {
+        throw std::runtime_error("raw expression memory lane is outside the memory operand");
+      }
+    }
 
     parsed.operation = "memory_load";
     parsed.base_register = memory.at("base").get<std::string>();
-    parsed.offset = memory.at("displacement").get<std::ptrdiff_t>();
-    parsed.offset += static_cast<std::ptrdiff_t>(memory_lane * (element_bits / 8));
+    parsed.offset = checked_memory_offset(
+      memory.at("displacement").get<std::ptrdiff_t>(), memory_lane, element_bits
+    );
   } else if (parsed.kind == "binary") {
     parsed.operation = node.at("operation").get<std::string>();
   } else {

@@ -66,3 +66,66 @@ TEST_CASE(
   CHECK(loaded.error().front().code == "compat.raw_expression_json.invalid_input");
   CHECK(loaded.error().front().message == "unsupported raw expression JSON format");
 }
+
+TEST_CASE(
+  "raw expression compatibility importer rejects memory loads with children"
+) {
+  constexpr std::string_view invalid = R"json(
+{
+  "format": "simd-decompiler.raw-expression-dag.v1",
+  "root": 1,
+  "nodes": [
+    {
+      "id": 0,
+      "kind": "memory_load",
+      "type": {"scalar": "floating_point", "element_bits": 32, "lane_count": 1},
+      "memory": {"base": "rdi", "displacement": 0, "size_bits": 32},
+      "memory_lane": 0,
+      "element_bits": 32,
+      "children": []
+    },
+    {
+      "id": 1,
+      "kind": "memory_load",
+      "type": {"scalar": "floating_point", "element_bits": 32, "lane_count": 1},
+      "memory": {"base": "rsi", "displacement": 0, "size_bits": 32},
+      "memory_lane": 0,
+      "element_bits": 32,
+      "children": [{"id": 0}]
+    }
+  ]
+}
+)json";
+
+  const auto loaded = sivra::compat::parse_raw_expression_json(invalid);
+
+  REQUIRE(!loaded.has_value());
+  CHECK(loaded.error().front().message == "raw expression memory load must not have children");
+}
+
+TEST_CASE(
+  "raw expression compatibility importer rejects overflowing memory lane offsets"
+) {
+  constexpr std::string_view invalid = R"json(
+{
+  "format": "simd-decompiler.raw-expression-dag.v1",
+  "root": 0,
+  "nodes": [
+    {
+      "id": 0,
+      "kind": "memory_load",
+      "type": {"scalar": "floating_point", "element_bits": 32, "lane_count": 1},
+      "memory": {"base": "rdi", "displacement": 9223372036854775807},
+      "memory_lane": 1,
+      "element_bits": 32,
+      "children": []
+    }
+  ]
+}
+)json";
+
+  const auto loaded = sivra::compat::parse_raw_expression_json(invalid);
+
+  REQUIRE(!loaded.has_value());
+  CHECK(loaded.error().front().message == "raw expression memory displacement overflows");
+}

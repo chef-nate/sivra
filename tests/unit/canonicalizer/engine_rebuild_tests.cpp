@@ -4,6 +4,7 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <array>
 
 TEST_CASE(
@@ -46,7 +47,9 @@ TEST_CASE(
   REQUIRE(root_operands.size() == 2);
   const auto lhs_operands = result.graph.at(root_operands[0]).operands();
   const auto rhs_operands = result.graph.at(root_operands[1]).operands();
-  CHECK(lhs_operands[0] == rhs_operands[0]);
+  CHECK(std::ranges::any_of(lhs_operands, [&](sivra::ir::node_id lhs_operand) {
+    return std::ranges::find(rhs_operands, lhs_operand) != rhs_operands.end();
+  }));
 }
 
 TEST_CASE(

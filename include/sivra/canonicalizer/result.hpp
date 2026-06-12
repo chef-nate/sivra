@@ -1,10 +1,10 @@
 #pragma once
 
 #include "equivalence_contract.hpp"
+#include "trace.hpp"
 
 #include <sivra/core/diagnostic.hpp>
 #include <sivra/core/result.hpp>
-#include <sivra/core/trace.hpp>
 #include <sivra/ir/expression_graph.hpp>
 
 #include <optional>
@@ -15,8 +15,15 @@ namespace sivra::canonicalizer {
 struct canonicalization_statistics {
   std::size_t imported_nodes = 0;
   std::size_t output_nodes = 0;
+  std::size_t nodes_created = 0;
+  std::size_t nodes_reused = 0;
   std::size_t worklist_steps = 0;
+  std::size_t rule_attempts = 0;
+  std::size_t rule_matches = 0;
   std::size_t rewrites_applied = 0;
+  std::size_t phase_iterations = 0;
+  std::size_t peak_output_nodes = 0;
+  bool exhausted_budget = false;
 };
 
 class source_mapping {
@@ -26,7 +33,7 @@ public:
     std::size_t source_size
   );
 
-  void record(
+  [[nodiscard]] core::result_t<void> record(
     ir::node_id source,
     ir::node_id canonical
   );
@@ -34,6 +41,10 @@ public:
   [[nodiscard]] std::optional<ir::node_id> canonical_for(
     ir::node_id source
   ) const;
+
+  [[nodiscard]] core::result_t<void> compose(
+    const source_mapping& next
+  );
 
   [[nodiscard]] std::size_t size() const;
 
@@ -50,7 +61,7 @@ struct canonicalization_result {
   core::diagnostic_bundle_t diagnostics;
   canonicalization_statistics statistics;
   source_mapping mapping;
-  std::vector<core::trace_event> trace;
+  std::vector<rewrite_trace_event> trace;
 };
 
 struct single_canonicalization_result {
@@ -61,7 +72,7 @@ struct single_canonicalization_result {
   core::diagnostic_bundle_t diagnostics;
   canonicalization_statistics statistics;
   source_mapping mapping;
-  std::vector<core::trace_event> trace;
+  std::vector<rewrite_trace_event> trace;
 };
 
 } // namespace sivra::canonicalizer

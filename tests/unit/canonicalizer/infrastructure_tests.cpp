@@ -23,8 +23,9 @@ TEST_CASE(
   CHECK(result.status == sivra::core::analysis_status::complete);
   CHECK(result.contract == sivra::canonicalizer::algebraic_equivalence_contract());
   CHECK(result.statistics.imported_nodes == 3);
-  CHECK(result.statistics.output_nodes == 2);
+  CHECK(result.statistics.output_nodes == 1);
   CHECK(result.statistics.rewrites_applied == 1);
+  CHECK(result.statistics.phase_iterations >= 2);
   CHECK(result.mapping.canonical_for(root) == result.root);
   CHECK(result.mapping.canonical_for(symbol) == result.root);
 }
@@ -50,20 +51,50 @@ TEST_CASE(
 }
 
 TEST_CASE(
+  "canonicalization revisits earlier phases until the full phase sequence is stable"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto positive = fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(1.0F), x});
+  const auto negative =
+    fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(-1.0F), x});
+  const auto root = fixture.apply(fixture.operations.builtins.add, {positive, negative});
+  const sivra::canonicalizer::engine engine;
+
+  const auto first = engine.canonicalize(fixture.graph, root);
+  REQUIRE(first.status == sivra::core::analysis_status::complete);
+  REQUIRE(first.root.has_value());
+  const auto second = engine.canonicalize(first.graph, *first.root);
+  REQUIRE(second.status == sivra::core::analysis_status::complete);
+  REQUIRE(second.root.has_value());
+  sivra::ir::structural_context structural;
+
+  CHECK(structural.equal(first.graph, *first.root, second.graph, *second.root));
+  CHECK(sivra::test_support::format_expression(first.graph, *first.root) == "0");
+  CHECK(second.statistics.rewrites_applied == 0);
+}
+
+TEST_CASE(
   "canonicalizer collects deterministic optional traces"
 ) {
   sivra::test_support::graph_builder_fixture fixture;
-  const auto root =
-    fixture.apply(fixture.operations.builtins.multiply, {fixture.symbol("x"), fixture.f32(1.0F)});
+  const auto root = fixture.apply(
+    fixture.operations.builtins.multiply,
+    {fixture.symbol("x"), fixture.f32(0.0F), fixture.f32(1.0F)}
+  );
   sivra::canonicalizer::configuration configuration;
   configuration.set_collect_trace(true);
 
   const sivra::canonicalizer::engine engine(configuration);
   const auto result = engine.canonicalize(fixture.graph, root);
 
-  REQUIRE(!result.trace.empty());
-  CHECK(result.trace.back().domain == sivra::core::trace_domain::canonicalizer);
-  CHECK(result.trace.back().kind == "import");
+  REQUIRE(result.trace.size() == 2);
+  CHECK(result.trace[0].sequence == 0);
+  CHECK(result.trace[0].rule == sivra::canonicalizer::builtin_rules::identity_elimination);
+  CHECK(result.trace[0].phase == sivra::canonicalizer::pass_phase::local_simplification);
+  CHECK(result.trace[1].sequence == 1);
+  CHECK(result.trace[1].rule == sivra::canonicalizer::builtin_rules::annihilator_collapse);
+  CHECK(result.trace[1].phase == sivra::canonicalizer::pass_phase::local_simplification);
 }
 
 TEST_CASE(

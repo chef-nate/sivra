@@ -1,10 +1,14 @@
 #pragma once
 
 #include "configuration.hpp"
+#include "evaluator.hpp"
+#include "phase.hpp"
 #include "result.hpp"
+#include "rewrite.hpp"
 
 #include <sivra/ir/expression_graph.hpp>
 
+#include <memory>
 #include <span>
 
 namespace sivra::canonicalizer {
@@ -20,6 +24,12 @@ public:
    */
   explicit engine(
     configuration config = {}
+  );
+
+  engine(
+    configuration config,
+    std::shared_ptr<const rule_catalogue> rules,
+    std::shared_ptr<const evaluator_catalogue> evaluators
   );
 
   engine(
@@ -42,6 +52,9 @@ public:
    * @brief Returns the configuration used by this engine.
    */
   [[nodiscard]] const configuration& configuration() const;
+  [[nodiscard]] const rule_catalogue& rules() const;
+  [[nodiscard]] const evaluator_catalogue& evaluators() const;
+  [[nodiscard]] const pass_scheduler& scheduler() const;
 
   /**
    * @brief Canonicalizes one or more root expressions.
@@ -66,6 +79,9 @@ public:
 
 private:
   canonicalizer::configuration m_configuration;
+  std::shared_ptr<const rule_catalogue> m_rules;
+  std::shared_ptr<const evaluator_catalogue> m_evaluators;
+  pass_scheduler m_scheduler;
 };
 
 } // namespace sivra::canonicalizer

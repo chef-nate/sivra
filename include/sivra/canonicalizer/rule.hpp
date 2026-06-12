@@ -1,37 +1,12 @@
 #pragma once
 
-#include <compare>
+#include "id.hpp"
+#include "phase.hpp"
+
 #include <span>
-#include <string>
 #include <string_view>
 
 namespace sivra::canonicalizer {
-
-class rule_id {
-public:
-  explicit rule_id(
-    std::string key
-  );
-
-  [[nodiscard]] std::string_view key() const;
-
-  auto operator<=>(
-    const rule_id&
-  ) const = default;
-
-private:
-  std::string m_key;
-};
-
-enum class pass_phase {
-  validation,
-  local_simplification,
-  shape_normalization,
-  algebraic_collection,
-  domain_normalization,
-  cleanup,
-  verification,
-};
 
 struct rule_metadata {
   rule_id id;

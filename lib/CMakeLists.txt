@@ -85,16 +85,24 @@ target_sources(sivra-canonicalizer
     canonicalizer/configuration.cpp
     canonicalizer/engine.cpp
     canonicalizer/equivalence_contract.cpp
+    canonicalizer/evaluator_catalogue.cpp
     canonicalizer/result.cpp
-    canonicalizer/rewrite.cpp
+    canonicalizer/rewrite_context.cpp
     canonicalizer/rule.cpp
+    canonicalizer/rule_catalogue.cpp
+    canonicalizer/scheduler.cpp
+    canonicalizer/termination.cpp
+    canonicalizer/trace.cpp
+    canonicalizer/worklist.cpp
     canonicalizer/rules/algebraic.cpp
-    canonicalizer/rules/rule_catalogue.cpp
+    canonicalizer/rules/constants.cpp
+    canonicalizer/rules/structural.cpp
 )
 
 target_include_directories(sivra-canonicalizer
   PUBLIC
-    ${PROJECT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -107,6 +115,7 @@ target_compile_features(sivra-canonicalizer
 set_target_properties(sivra-canonicalizer
   PROPERTIES
     CXX_EXTENSIONS OFF
+    EXPORT_NAME canonicalizer
 )
 
 target_link_libraries(sivra-canonicalizer

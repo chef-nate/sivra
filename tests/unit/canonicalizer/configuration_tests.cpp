@@ -24,20 +24,41 @@ TEST_CASE(
 }
 
 TEST_CASE(
-  "canonicalizer configuration rejects unknown rule identifiers"
+  "canonicalizer configuration accepts dynamic stable rule identifiers"
 ) {
   sivra::canonicalizer::configuration configuration;
-  const sivra::canonicalizer::rule_id unknown("test.unknown");
+  const sivra::canonicalizer::rule_id custom("test.custom");
 
-  const auto enabled = configuration.enable_rule(unknown);
-  const auto disabled = configuration.disable_rule(unknown);
+  REQUIRE(configuration.enable_rule(custom).has_value());
+  CHECK(configuration.is_rule_enabled(custom));
+  REQUIRE(configuration.disable_rule(custom).has_value());
+  CHECK(!configuration.is_rule_enabled(custom));
 
-  REQUIRE(!enabled.has_value());
-  REQUIRE(!disabled.has_value());
-  REQUIRE(enabled.error().size() == 1);
-  REQUIRE(disabled.error().size() == 1);
-  CHECK(enabled.error().front().code == "canonicalizer.configuration.unknown_rule");
   CHECK(configuration.validate().has_value());
+}
+
+TEST_CASE(
+  "canonicalizer configuration controls explicit phases"
+) {
+  sivra::canonicalizer::configuration configuration;
+
+  CHECK(configuration.is_phase_enabled(sivra::canonicalizer::pass_phase::shape_normalization));
+  configuration.disable_phase(sivra::canonicalizer::pass_phase::shape_normalization);
+  CHECK(!configuration.is_phase_enabled(sivra::canonicalizer::pass_phase::shape_normalization));
+  configuration.enable_phase(sivra::canonicalizer::pass_phase::shape_normalization);
+  CHECK(configuration.is_phase_enabled(sivra::canonicalizer::pass_phase::shape_normalization));
+}
+
+TEST_CASE(
+  "canonicalizer configuration rejects unknown phases"
+) {
+  sivra::canonicalizer::configuration configuration;
+  configuration.enable_phase(static_cast<sivra::canonicalizer::pass_phase>(999));
+
+  const auto validated = configuration.validate();
+
+  REQUIRE(!validated.has_value());
+  CHECK(validated.error().front().code == "canonicalizer.configuration.invalid_phase");
 }
 
 TEST_CASE(
@@ -59,10 +80,15 @@ TEST_CASE(
 ) {
   const auto rules = sivra::canonicalizer::available_rules();
 
-  REQUIRE(rules.size() == 3);
+  REQUIRE(rules.size() == 8);
   CHECK(rules[0].id.key() == "sivra.associative_flattening");
-  CHECK(rules[1].id.key() == "sivra.identity_elimination");
-  CHECK(rules[2].id.key() == "sivra.annihilator_collapse");
+  CHECK(rules[1].id.key() == "sivra.commutative_ordering");
+  CHECK(rules[2].id.key() == "sivra.idempotent_deduplication");
+  CHECK(rules[3].id.key() == "sivra.identity_elimination");
+  CHECK(rules[4].id.key() == "sivra.annihilator_collapse");
+  CHECK(rules[5].id.key() == "sivra.same_operand_simplification");
+  CHECK(rules[6].id.key() == "sivra.constant_folding");
+  CHECK(rules[7].id.key() == "sivra.coefficient_collection");
   CHECK(rules[0].enabled_by_default);
 }
 
@@ -76,8 +102,11 @@ TEST_CASE(
     {
       .maximum_imported_nodes = 10,
       .maximum_output_nodes = 20,
+      .maximum_node_growth = 15,
       .maximum_worklist_steps = 30,
       .maximum_rewrites = 40,
+      .maximum_rewrites_per_node = 8,
+      .maximum_phase_iterations = 12,
     }
   );
 
@@ -86,6 +115,7 @@ TEST_CASE(
   CHECK(!engine.configuration().is_trait_enabled(sivra::ir::operation_trait::commutative));
   CHECK(engine.configuration().collect_trace());
   CHECK(engine.configuration().limits().maximum_rewrites == 40);
+  CHECK(engine.configuration().limits().maximum_phase_iterations == 12);
   CHECK(
     engine.configuration().contract() == sivra::canonicalizer::algebraic_equivalence_contract()
   );

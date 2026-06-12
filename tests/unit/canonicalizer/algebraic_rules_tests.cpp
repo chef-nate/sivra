@@ -186,7 +186,7 @@ TEST_CASE(
   REQUIRE(configuration.disable_rule(sivra::canonicalizer::builtin_rules::annihilator_collapse)
             .has_value());
 
-  CHECK(canonical_expression(fixture, root, configuration) == "multiply(x, 0, 1)");
+  CHECK(canonical_expression(fixture, root, configuration) == "multiply(0, 1, x)");
 }
 
 TEST_CASE(
@@ -241,4 +241,62 @@ TEST_CASE(
     fixture.apply(fixture.operations.custom.front(), {fixture.symbol("x"), fixture.f32(2.0F)});
 
   CHECK(canonical_expression(fixture, root) == "2");
+}
+
+TEST_CASE(
+  "constant folding evaluates built-in scalar operations"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto add =
+    fixture.apply(fixture.operations.builtins.add, {fixture.f32(2.0F), fixture.f32(3.0F)});
+  const auto subtract = fixture.apply(
+    fixture.operations.builtins.subtract,
+    {fixture.i32(9), fixture.i32(4)},
+    sivra::ir::value_type::i32()
+  );
+
+  CHECK(canonical_expression(fixture, add) == "5");
+  CHECK(canonical_expression(fixture, subtract) == "5");
+}
+
+TEST_CASE(
+  "same-operand subtraction simplifies to zero"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto root = fixture.apply(fixture.operations.builtins.subtract, {x, x});
+
+  CHECK(canonical_expression(fixture, root) == "0");
+}
+
+TEST_CASE(
+  "same-operand simplification requires the exact built-in operation key"
+) {
+  sivra::ir::operation_registration operation{
+    .key = sivra::ir::operation_key("subtract", 2),
+    .name = "subtract_v2",
+    .signature =
+      {
+        .arity = {.minimum = 2, .maximum = 2},
+        .operand_types = sivra::ir::operand_type_constraint::same_as_result,
+      },
+    .attribute_schema = {},
+  };
+  sivra::test_support::graph_builder_fixture fixture({std::move(operation)});
+  const auto x = fixture.symbol("x");
+  const auto root = fixture.apply(fixture.operations.custom.front(), {x, x});
+
+  CHECK(canonical_expression(fixture, root) == "subtract_v2(x, x)");
+}
+
+TEST_CASE(
+  "coefficient collection combines repeated additive terms"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto twice = fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(2.0F), x});
+  const auto thrice = fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(3.0F), x});
+  const auto root = fixture.apply(fixture.operations.builtins.add, {twice, thrice});
+
+  CHECK(canonical_expression(fixture, root) == "multiply(5, x)");
 }

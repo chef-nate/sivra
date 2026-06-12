@@ -60,6 +60,10 @@ core::result_t<builtin_operation_ids> register_builtin_operations(
       .name = "maximum",
       .signature = binary_same_type,
       .attribute_schema = {},
+      .semantics =
+        operation_semantics{
+          .traits = operation_trait::commutative | operation_trait::idempotent,
+        },
     },
   };
 

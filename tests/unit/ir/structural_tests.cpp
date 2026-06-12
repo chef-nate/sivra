@@ -5,6 +5,8 @@
 
 #include <doctest/doctest.h>
 
+#include <new>
+
 TEST_CASE(
   "structural services match expressions across compatible catalogues"
 ) {
@@ -167,4 +169,50 @@ TEST_CASE(
 
   CHECK(structural.equal(lhs.graph, lhs_merge, rhs.graph, rhs_merge));
   CHECK(structural.hash(lhs.graph, lhs_merge) == structural.hash(rhs.graph, rhs_merge));
+}
+
+TEST_CASE(
+  "structural context does not reuse cache entries for graphs at the same address"
+) {
+  const auto operations = sivra::test_support::make_test_catalogue();
+  using graph_t = sivra::ir::expression_graph;
+  void* storage = ::operator new(sizeof(graph_t), std::align_val_t{alignof(graph_t)});
+  sivra::ir::structural_context structural;
+
+  auto* first = new (storage) graph_t(operations.catalogue);
+  sivra::ir::node_id first_symbol = [&] {
+    sivra::ir::graph_builder builder(*first);
+    return sivra::test_support::require_value(
+      builder.make_symbol("first", sivra::ir::value_type::f32())
+    );
+  }();
+  const auto first_hash = structural.hash(*first, first_symbol);
+  first->~graph_t();
+
+  auto* second = new (storage) graph_t(operations.catalogue);
+  sivra::ir::node_id second_symbol = [&] {
+    sivra::ir::graph_builder builder(*second);
+    return sivra::test_support::require_value(
+      builder.make_symbol("second", sivra::ir::value_type::f32())
+    );
+  }();
+  const auto second_hash = structural.hash(*second, second_symbol);
+  second->~graph_t();
+  ::operator delete(storage, std::align_val_t{alignof(graph_t)});
+
+  CHECK(first_hash != second_hash);
+}
+
+TEST_CASE(
+  "structural services handle deeply shared DAGs without recursive encoding growth"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  auto root = fixture.symbol("x");
+  for (int index = 0; index < 256; ++index) {
+    root = fixture.apply(fixture.operations.builtins.add, {root, root});
+  }
+  sivra::ir::structural_context structural;
+
+  CHECK(structural.equal(fixture.graph, root, fixture.graph, root));
+  CHECK(structural.hash(fixture.graph, root) == structural.hash(fixture.graph, root));
 }

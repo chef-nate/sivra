@@ -1,6 +1,7 @@
 #pragma once
 
 #include "equivalence_contract.hpp"
+#include "phase.hpp"
 #include "rule.hpp"
 
 #include <sivra/core/result.hpp>
@@ -14,8 +15,11 @@ namespace sivra::canonicalizer {
 struct canonicalization_limits {
   std::size_t maximum_imported_nodes = 1'000'000;
   std::size_t maximum_output_nodes = 1'000'000;
+  std::size_t maximum_node_growth = 1'000'000;
   std::size_t maximum_worklist_steps = 1'000'000;
   std::size_t maximum_rewrites = 100'000;
+  std::size_t maximum_rewrites_per_node = 1'000;
+  std::size_t maximum_phase_iterations = 100;
 };
 
 class configuration {
@@ -34,6 +38,18 @@ public:
     const rule_id& rule
   ) const;
 
+  void enable_phase(
+    pass_phase phase
+  );
+
+  void disable_phase(
+    pass_phase phase
+  );
+
+  [[nodiscard]] bool is_phase_enabled(
+    pass_phase phase
+  ) const;
+
   void enable_trait(
     ir::operation_trait trait
   );
@@ -47,6 +63,7 @@ public:
   ) const;
 
   [[nodiscard]] const std::set<rule_id>& enabled_rules() const;
+  [[nodiscard]] const std::set<pass_phase>& enabled_phases() const;
   [[nodiscard]] ir::operation_trait enabled_traits() const;
 
   [[nodiscard]] const canonicalization_limits& limits() const;
@@ -64,6 +81,7 @@ public:
 
 private:
   std::set<rule_id> m_enabled_rules;
+  std::set<pass_phase> m_enabled_phases;
   ir::operation_trait m_enabled_traits;
   canonicalization_limits m_limits;
   bool m_collect_trace = false;

@@ -1,7 +1,6 @@
 /**
  * @file rule.def
- * @brief Canonicalizer rule list used to generate public rule metadata and the
- * public metadata.
+ * @brief Canonicalizer rule list used to generate public rule metadata.
  *
  * Each entry is:
  * SIVRA_CANONICALIZER_RULE(name, stable_key, enabled_by_default, description)
@@ -11,6 +10,18 @@ SIVRA_CANONICALIZER_RULE(
   "sivra.associative_flattening",
   true,
   "Flattens nested uses of an associative operation."
+)
+SIVRA_CANONICALIZER_RULE(
+  commutative_ordering,
+  "sivra.commutative_ordering",
+  true,
+  "Orders operands of commutative operations structurally."
+)
+SIVRA_CANONICALIZER_RULE(
+  idempotent_deduplication,
+  "sivra.idempotent_deduplication",
+  true,
+  "Removes duplicate operands from idempotent operations."
 )
 SIVRA_CANONICALIZER_RULE(
   identity_elimination,
@@ -23,4 +34,22 @@ SIVRA_CANONICALIZER_RULE(
   "sivra.annihilator_collapse",
   true,
   "Replaces an operation with an operand equal to its annihilator."
+)
+SIVRA_CANONICALIZER_RULE(
+  same_operand_simplification,
+  "sivra.same_operand_simplification",
+  true,
+  "Simplifies operations with structurally equal operands."
+)
+SIVRA_CANONICALIZER_RULE(
+  constant_folding,
+  "sivra.constant_folding",
+  true,
+  "Evaluates operations whose operands are all constants."
+)
+SIVRA_CANONICALIZER_RULE(
+  coefficient_collection,
+  "sivra.coefficient_collection",
+  true,
+  "Collects coefficients of structurally equal additive terms."
 )
