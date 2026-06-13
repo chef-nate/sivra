@@ -3,8 +3,99 @@
 #include <algorithm>
 #include <stdexcept>
 #include <utility>
+#include <variant>
 
 namespace sivra::program {
+
+namespace {
+
+core::result_t<void> validate_operand(
+  const operand_constraint& constraint,
+  const operand& value
+) {
+  switch (constraint.kind) {
+  case operand_constraint_kind::register_operand:
+    if (!std::holds_alternative<register_operand>(value)) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand", "instruction operand must be a register"
+      );
+    }
+    break;
+  case operand_constraint_kind::register_or_memory:
+    if (!std::holds_alternative<register_operand>(value) &&
+        !std::holds_alternative<memory_operand>(value)) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand",
+        "instruction operand must be a register or memory operand"
+      );
+    }
+    break;
+  case operand_constraint_kind::memory:
+    if (!std::holds_alternative<memory_operand>(value)) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand", "instruction operand must be memory"
+      );
+    }
+    break;
+  case operand_constraint_kind::immediate:
+    if (!std::holds_alternative<immediate_operand>(value)) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand", "instruction operand must be an immediate"
+      );
+    }
+    break;
+  }
+
+  if (const auto* reg = std::get_if<register_operand>(&value)) {
+    if (auto validated = reg->slice.validate(); !validated.has_value()) {
+      return std::unexpected(std::move(validated.error()));
+    }
+    if (constraint.width != 0 && reg->slice.width != constraint.width) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand_width",
+        "register operand width does not match instruction form"
+      );
+    }
+  }
+  if (const auto* memory = std::get_if<memory_operand>(&value);
+      memory != nullptr && constraint.width != 0 && memory->width != constraint.width) {
+    return core::fail<void>(
+      "program.instruction_form.invalid_operand_width",
+      "memory operand width does not match instruction form"
+    );
+  }
+  if (const auto* immediate = std::get_if<immediate_operand>(&value)) {
+    const auto expected_width = constraint.immediate_width.value_or(constraint.width);
+    if (expected_width != 0 && immediate->width != expected_width) {
+      return core::fail<void>(
+        "program.instruction_form.invalid_operand_width",
+        "immediate operand width does not match instruction form"
+      );
+    }
+  }
+  return {};
+}
+
+} // namespace
+
+core::result_t<void> validate_instruction_operands(
+  const instruction_form_definition& form,
+  std::span<const operand> operands
+) {
+  if (form.operands.size() != operands.size()) {
+    return core::fail<void>(
+      "program.instruction_form.invalid_operand_count",
+      "instruction operand count does not match instruction form"
+    );
+  }
+  for (std::size_t index = 0; index < form.operands.size(); ++index) {
+    if (auto validated = validate_operand(form.operands[index], operands[index]);
+        !validated.has_value()) {
+      return std::unexpected(std::move(validated.error()));
+    }
+  }
+  return {};
+}
 
 instruction_catalogue::instruction_catalogue(
   core::owner_token owner,

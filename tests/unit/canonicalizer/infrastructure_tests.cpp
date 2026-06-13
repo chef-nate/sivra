@@ -92,9 +92,15 @@ TEST_CASE(
   CHECK(result.trace[0].sequence == 0);
   CHECK(result.trace[0].rule == sivra::canonicalizer::builtin_rules::identity_elimination);
   CHECK(result.trace[0].phase == sivra::canonicalizer::pass_phase::local_simplification);
+  REQUIRE(result.trace[0].old_root.has_value());
+  REQUIRE(result.trace[0].new_root.has_value());
+  CHECK(*result.trace[0].old_root != *result.trace[0].new_root);
   CHECK(result.trace[1].sequence == 1);
   CHECK(result.trace[1].rule == sivra::canonicalizer::builtin_rules::annihilator_collapse);
   CHECK(result.trace[1].phase == sivra::canonicalizer::pass_phase::local_simplification);
+  REQUIRE(result.trace[1].old_root.has_value());
+  REQUIRE(result.trace[1].new_root.has_value());
+  CHECK(*result.trace[1].old_root != *result.trace[1].new_root);
 }
 
 TEST_CASE(

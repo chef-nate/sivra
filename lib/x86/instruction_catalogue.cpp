@@ -11,17 +11,28 @@ using sivra::program::operand_constraint_kind;
 
 operand_constraint xmm_rw() {
   return {
-    .kind = operand_constraint_kind::xmm_register,
+    .kind = operand_constraint_kind::register_operand,
     .access = operand_access::read_write,
     .width = 128,
+    .register_class = "x86.xmm",
+  };
+}
+
+operand_constraint xmm_write() {
+  return {
+    .kind = operand_constraint_kind::register_operand,
+    .access = operand_access::write,
+    .width = 128,
+    .register_class = "x86.xmm",
   };
 }
 
 operand_constraint xmm_read() {
   return {
-    .kind = operand_constraint_kind::xmm_register,
+    .kind = operand_constraint_kind::register_operand,
     .access = operand_access::read,
     .width = 128,
+    .register_class = "x86.xmm",
   };
 }
 
@@ -29,9 +40,10 @@ operand_constraint xmm_or_memory(
   std::uint32_t width
 ) {
   return {
-    .kind = operand_constraint_kind::xmm_or_memory,
+    .kind = operand_constraint_kind::register_or_memory,
     .access = operand_access::read,
     .width = width,
+    .register_class = "x86.xmm",
   };
 }
 
@@ -86,13 +98,15 @@ builtin_instruction_catalogue builtin_sse1_instruction_catalogue() {
       .maxps = add("sse.maxps.xmm.xmm_m128", "maxps", {xmm_rw(), xmm_or_memory(128)}, "sse.maxps"),
       .maxss = add("sse.maxss.xmm.xmm_m32", "maxss", {xmm_rw(), xmm_or_memory(32)}, "sse.maxss"),
       .sqrtps =
-        add("sse.sqrtps.xmm.xmm_m128", "sqrtps", {xmm_rw(), xmm_or_memory(128)}, "sse.sqrtps"),
+        add("sse.sqrtps.xmm.xmm_m128", "sqrtps", {xmm_write(), xmm_or_memory(128)}, "sse.sqrtps"),
       .sqrtss =
         add("sse.sqrtss.xmm.xmm_m32", "sqrtss", {xmm_rw(), xmm_or_memory(32)}, "sse.sqrtss"),
-      .rcpps = add("sse.rcpps.xmm.xmm_m128", "rcpps", {xmm_rw(), xmm_or_memory(128)}, "sse.rcpps"),
+      .rcpps =
+        add("sse.rcpps.xmm.xmm_m128", "rcpps", {xmm_write(), xmm_or_memory(128)}, "sse.rcpps"),
       .rcpss = add("sse.rcpss.xmm.xmm_m32", "rcpss", {xmm_rw(), xmm_or_memory(32)}, "sse.rcpss"),
-      .rsqrtps =
-        add("sse.rsqrtps.xmm.xmm_m128", "rsqrtps", {xmm_rw(), xmm_or_memory(128)}, "sse.rsqrtps"),
+      .rsqrtps = add(
+        "sse.rsqrtps.xmm.xmm_m128", "rsqrtps", {xmm_write(), xmm_or_memory(128)}, "sse.rsqrtps"
+      ),
       .rsqrtss =
         add("sse.rsqrtss.xmm.xmm_m32", "rsqrtss", {xmm_rw(), xmm_or_memory(32)}, "sse.rsqrtss"),
       .andps = add("sse.andps.xmm.xmm_m128", "andps", {xmm_rw(), xmm_or_memory(128)}, "sse.andps"),
@@ -100,12 +114,14 @@ builtin_instruction_catalogue builtin_sse1_instruction_catalogue() {
         add("sse.andnps.xmm.xmm_m128", "andnps", {xmm_rw(), xmm_or_memory(128)}, "sse.andnps"),
       .orps = add("sse.orps.xmm.xmm_m128", "orps", {xmm_rw(), xmm_or_memory(128)}, "sse.orps"),
       .xorps = add("sse.xorps.xmm.xmm_m128", "xorps", {xmm_rw(), xmm_or_memory(128)}, "sse.xorps"),
-      .movaps_load =
-        add("sse.movaps.xmm.xmm_m128", "movaps", {xmm_rw(), xmm_or_memory(128)}, "sse.movaps.load"),
+      .movaps_load = add(
+        "sse.movaps.xmm.xmm_m128", "movaps", {xmm_write(), xmm_or_memory(128)}, "sse.movaps.load"
+      ),
       .movaps_store =
         add("sse.movaps.m128.xmm", "movaps", {memory(128), xmm_read()}, "sse.movaps.store"),
-      .movups_load =
-        add("sse.movups.xmm.xmm_m128", "movups", {xmm_rw(), xmm_or_memory(128)}, "sse.movups.load"),
+      .movups_load = add(
+        "sse.movups.xmm.xmm_m128", "movups", {xmm_write(), xmm_or_memory(128)}, "sse.movups.load"
+      ),
       .movups_store =
         add("sse.movups.m128.xmm", "movups", {memory(128), xmm_read()}, "sse.movups.store"),
       .movss_load =

@@ -39,6 +39,22 @@ void merge_status(
   }
 }
 
+sivra::core::result_t<void> validate_evaluator_bindings(
+  const sivra::ir::operation_catalogue& operations,
+  const sivra::canonicalizer::evaluator_catalogue& evaluators
+) {
+  for (const auto& operation : operations.operations()) {
+    if (operation.evaluator_key().has_value() &&
+        evaluators.find(*operation.evaluator_key()) == nullptr) {
+      return sivra::core::fail<void>(
+        "canonicalizer.evaluator_catalogue.missing_evaluator",
+        "operation declares an evaluator key that is not present in the evaluator catalogue"
+      );
+    }
+  }
+  return {};
+}
+
 } // namespace
 
 namespace sivra::canonicalizer {
@@ -123,6 +139,10 @@ canonicalization_result engine::canonicalize(
     }
   }
   if (auto validated = graph.validate(); !validated.has_value()) {
+    return invalid_result(std::move(validated.error()));
+  }
+  if (auto validated = validate_evaluator_bindings(graph.catalogue(), *m_evaluators);
+      !validated.has_value()) {
     return invalid_result(std::move(validated.error()));
   }
 

@@ -1,9 +1,11 @@
 #include <sivra/x86/semantic_provider.hpp>
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <stdexcept>
 #include <utility>
+#include <variant>
 
 namespace {
 
@@ -18,13 +20,21 @@ bool is_memory_operand(
   return std::holds_alternative<sivra::program::memory_operand>(operand);
 }
 
+sivra::ir::value_type f32x4() {
+  auto type = sivra::ir::value_type::vector(sivra::ir::scalar_category::floating_point, 32, 4);
+  if (!type.has_value()) {
+    throw std::logic_error("f32x4 type construction failed");
+  }
+  return *type;
+}
+
 sivra::program::register_slice register_destination(
   const sivra::program::operand& operand
 ) {
   const auto& reg = std::get<sivra::program::register_operand>(operand);
   return {
     .reg = reg.reg,
-    .bits = {.offset = 0, .width = 128},
+    .bits = reg.slice,
   };
 }
 
@@ -92,7 +102,7 @@ sivra::program::vector_value packed_binary(
     lanes.push_back(binary(operation, lane));
   }
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = std::move(lanes),
   };
 }
@@ -101,7 +111,7 @@ sivra::program::vector_value scalar_binary(
   lane_operation operation
 ) {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = {binary(operation, 0), copy(old_lane(1)), copy(old_lane(2)), copy(old_lane(3))},
   };
 }
@@ -115,7 +125,7 @@ sivra::program::vector_value packed_unary(
     lanes.push_back(unary(operation, lane));
   }
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = std::move(lanes),
   };
 }
@@ -124,14 +134,14 @@ sivra::program::vector_value scalar_unary(
   lane_operation operation
 ) {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = {unary(operation, 0), copy(old_lane(1)), copy(old_lane(2)), copy(old_lane(3))},
   };
 }
 
 sivra::program::vector_value full_copy() {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = {copy(source_lane(1, 0)),
               copy(source_lane(1, 1)),
               copy(source_lane(1, 2)),
@@ -150,7 +160,7 @@ sivra::program::vector_value movss_load(
   bool memory_source
 ) {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes =
       memory_source
         ? std::vector<lane_expression>{copy(source_lane(1, 0)), zero(), zero(), zero()}
@@ -167,7 +177,7 @@ sivra::program::vector_value shufps(
   std::uint8_t selector
 ) {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes =
       {
         copy(old_lane(selector & 0x3U)),
@@ -180,7 +190,7 @@ sivra::program::vector_value shufps(
 
 sivra::program::vector_value unpcklps() {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = {copy(old_lane(0)),
               copy(source_lane(1, 0)),
               copy(old_lane(1)),
@@ -190,7 +200,7 @@ sivra::program::vector_value unpcklps() {
 
 sivra::program::vector_value unpckhps() {
   return {
-    .type = sivra::ir::value_type::f32(),
+    .type = f32x4(),
     .lanes = {copy(old_lane(2)),
               copy(source_lane(1, 2)),
               copy(old_lane(3)),
@@ -224,6 +234,83 @@ std::optional<sivra::program::memory_read_effect> source_memory_read(
     .address = *memory,
     .width = memory->width,
   };
+}
+
+sivra::core::result_t<sivra::program::instruction_semantics> validate_semantics(
+  sivra::program::instruction_semantics semantics
+) {
+  for (const auto& effect : semantics.effects) {
+    if (const auto* write = std::get_if<sivra::program::semantic_write>(&effect)) {
+      const auto& value = std::get<sivra::program::vector_value>(write->value);
+      if (auto validated = sivra::program::validate_vector_value(value); !validated.has_value()) {
+        return std::unexpected(std::move(validated.error()));
+      }
+    }
+    if (const auto* write = std::get_if<sivra::program::memory_write_effect>(&effect)) {
+      const auto& value = std::get<sivra::program::vector_value>(write->value);
+      if (auto validated = sivra::program::validate_vector_value(value); !validated.has_value()) {
+        return std::unexpected(std::move(validated.error()));
+      }
+    }
+  }
+  return semantics;
+}
+
+struct canonical_register_slice {
+  sivra::program::register_id reg;
+  sivra::program::bit_range bits;
+};
+
+sivra::core::result_t<void> validate_x86_operands(
+  const sivra::x86::register_catalogue& registers,
+  const sivra::program::instruction_form_definition& form,
+  std::span<const sivra::program::operand> operands
+) {
+  for (std::size_t index = 0; index < operands.size(); ++index) {
+    const auto& constraint = form.operands[index];
+    if (const auto* reg = std::get_if<sivra::program::register_operand>(&operands[index])) {
+      if (reg->reg.owner() != registers.owner()) {
+        return sivra::core::fail<void>(
+          "x86.semantic_provider.foreign_register",
+          "instruction register operand does not belong to the x86 register catalogue"
+        );
+      }
+      if (registers.at(reg->reg).bank != sivra::x86::register_bank::simd) {
+        return sivra::core::fail<void>(
+          "x86.semantic_provider.invalid_register_class",
+          "instruction register operand must be an XMM register"
+        );
+      }
+      if (!constraint.register_class.empty() && constraint.register_class != "x86.xmm") {
+        return sivra::core::fail<void>(
+          "x86.semantic_provider.invalid_register_class",
+          "instruction form requests an unsupported register class"
+        );
+      }
+    }
+    if (const auto* memory = std::get_if<sivra::program::memory_operand>(&operands[index])) {
+      if (!memory->base.has_value()) {
+        continue;
+      }
+      if (memory->base->owner() != registers.owner()) {
+        return sivra::core::fail<void>(
+          "x86.semantic_provider.foreign_register",
+          "memory base register does not belong to the x86 register catalogue"
+        );
+      }
+      if (registers.at(*memory->base).bank != sivra::x86::register_bank::gpr) {
+        return sivra::core::fail<void>(
+          "x86.semantic_provider.invalid_register_class", "memory base register must be a GPR"
+        );
+      }
+    }
+    if (std::holds_alternative<sivra::program::unsupported_operand>(operands[index])) {
+      return sivra::core::fail<void>(
+        "x86.semantic_provider.unsupported_operand", "instruction contains an unsupported operand"
+      );
+    }
+  }
+  return {};
 }
 
 } // namespace
@@ -263,22 +350,38 @@ core::result_t<program::instruction_semantics> semantic_provider::semantics(
       "x86.semantic_provider.foreign_form", "instruction form does not belong to the x86 catalogue"
     );
   }
+  if (instruction.form.index() >= m_instructions.catalogue->forms().size()) {
+    return core::fail<program::instruction_semantics>(
+      "x86.semantic_provider.invalid_form", "instruction form does not exist in the x86 catalogue"
+    );
+  }
 
+  const auto& form = m_instructions.catalogue->form(instruction.form);
+  if (auto validated = program::validate_instruction_operands(form, instruction.operands);
+      !validated.has_value()) {
+    return std::unexpected(std::move(validated.error()));
+  }
+  if (auto validated = validate_x86_operands(*m_registers, form, instruction.operands);
+      !validated.has_value()) {
+    return std::unexpected(std::move(validated.error()));
+  }
   const auto& ids = m_instructions.ids;
   const auto scalar_source_is_memory =
     instruction.operands.size() > 1 && is_memory_operand(instruction.operands[1]);
   const auto emit_register = [&](
                                program::vector_value value, program::write_behavior behavior
-                             ) -> program::instruction_semantics {
+                             ) -> core::result_t<program::instruction_semantics> {
     std::vector<program::semantic_effect> effects;
     if (auto read = source_memory_read(instruction); read.has_value()) {
       effects.emplace_back(*read);
     }
     effects.emplace_back(register_write(instruction, std::move(value), behavior));
-    return {
-      .form = instruction.form,
-      .effects = std::move(effects),
-    };
+    return validate_semantics(
+      {
+        .form = instruction.form,
+        .effects = std::move(effects),
+      }
+    );
   };
 
   if (instruction.form == ids.addps) {
@@ -353,22 +456,25 @@ core::result_t<program::instruction_semantics> semantic_provider::semantics(
   }
   if (instruction.form == ids.rcpps) {
     return emit_register(
-      packed_unary(lane_operation::reciprocal_f32), program::write_behavior::full_replacement
+      packed_unary(lane_operation::approximate_reciprocal_f32),
+      program::write_behavior::full_replacement
     );
   }
   if (instruction.form == ids.rcpss) {
     return emit_register(
-      scalar_unary(lane_operation::reciprocal_f32), program::write_behavior::merge_old_destination
+      scalar_unary(lane_operation::approximate_reciprocal_f32),
+      program::write_behavior::merge_old_destination
     );
   }
   if (instruction.form == ids.rsqrtps) {
     return emit_register(
-      packed_unary(lane_operation::reciprocal_sqrt_f32), program::write_behavior::full_replacement
+      packed_unary(lane_operation::approximate_reciprocal_sqrt_f32),
+      program::write_behavior::full_replacement
     );
   }
   if (instruction.form == ids.rsqrtss) {
     return emit_register(
-      scalar_unary(lane_operation::reciprocal_sqrt_f32),
+      scalar_unary(lane_operation::approximate_reciprocal_sqrt_f32),
       program::write_behavior::merge_old_destination
     );
   }
@@ -405,17 +511,19 @@ core::result_t<program::instruction_semantics> semantic_provider::semantics(
   if (instruction.form == ids.movaps_store || instruction.form == ids.movups_store ||
       instruction.form == ids.movss_store) {
     const auto width = std::get<program::memory_operand>(instruction.operands.front()).width;
-    return program::instruction_semantics{
-      .form = instruction.form,
-      .effects =
-        {
-          program::memory_write_effect{
-            .address = std::get<program::memory_operand>(instruction.operands.front()),
-            .value = instruction.form == ids.movss_store ? scalar_store_copy() : full_copy(),
-            .width = width,
+    return validate_semantics(
+      program::instruction_semantics{
+        .form = instruction.form,
+        .effects =
+          {
+            program::memory_write_effect{
+              .address = std::get<program::memory_operand>(instruction.operands.front()),
+              .value = instruction.form == ids.movss_store ? scalar_store_copy() : full_copy(),
+              .width = width,
+            },
           },
-        },
-    };
+      }
+    );
   }
   if (instruction.form == ids.shufps) {
     const auto selector =
@@ -440,25 +548,50 @@ program::location_relation semantic_provider::relate(
   const program::machine_location& lhs,
   const program::machine_location& rhs
 ) const {
+  const auto canonicalize =
+    [&](const program::register_slice& slice) -> std::optional<canonical_register_slice> {
+    if (slice.reg.owner() != m_registers->owner()) {
+      return std::nullopt;
+    }
+    const auto& definition = m_registers->at(slice.reg).definition;
+    auto bits = slice.bits;
+    if (auto validated = bits.validate(); !validated.has_value()) {
+      return std::nullopt;
+    }
+    if (!definition.parent.has_value()) {
+      return canonical_register_slice{.reg = slice.reg, .bits = bits};
+    }
+    if (bits.end() > definition.parent_range.width) {
+      return std::nullopt;
+    }
+    bits.offset += definition.parent_range.offset;
+    return canonical_register_slice{.reg = *definition.parent, .bits = bits};
+  };
+
   const auto* lhs_register = std::get_if<program::register_slice>(&lhs);
   const auto* rhs_register = std::get_if<program::register_slice>(&rhs);
   if (lhs_register == nullptr || rhs_register == nullptr) {
     return lhs == rhs ? program::location_relation::equal : program::location_relation::unknown;
   }
-  if (lhs_register->reg != rhs_register->reg) {
+  const auto lhs_canonical = canonicalize(*lhs_register);
+  const auto rhs_canonical = canonicalize(*rhs_register);
+  if (!lhs_canonical.has_value() || !rhs_canonical.has_value()) {
+    return program::location_relation::unknown;
+  }
+  if (lhs_canonical->reg != rhs_canonical->reg) {
     return program::location_relation::disjoint;
   }
-  if (lhs_register->bits == rhs_register->bits) {
+  if (lhs_canonical->bits == rhs_canonical->bits) {
     return program::location_relation::equal;
   }
-  if (lhs_register->bits.contains(rhs_register->bits)) {
+  if (lhs_canonical->bits.contains(rhs_canonical->bits)) {
     return program::location_relation::contains;
   }
-  if (rhs_register->bits.contains(lhs_register->bits)) {
+  if (rhs_canonical->bits.contains(lhs_canonical->bits)) {
     return program::location_relation::contained_by;
   }
-  return lhs_register->bits.overlaps(rhs_register->bits) ? program::location_relation::overlaps
-                                                         : program::location_relation::disjoint;
+  return lhs_canonical->bits.overlaps(rhs_canonical->bits) ? program::location_relation::overlaps
+                                                           : program::location_relation::disjoint;
 }
 
 const register_catalogue& semantic_provider::registers() const {

@@ -9,8 +9,7 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "SIVRA_RUNTIME_OUTPUT_VARIANT": "clang-debug"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
@@ -21,8 +20,7 @@
       "cacheVariables": {
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "SIVRA_RUNTIME_OUTPUT_VARIANT": "clang-release"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
@@ -31,8 +29,7 @@
       "displayName": "Clang Sanitized",
       "binaryDir": "${sourceDir}/build/clang-sanitized",
       "cacheVariables": {
-        "SIVRA_ENABLE_SANITIZERS": "ON",
-        "SIVRA_RUNTIME_OUTPUT_VARIANT": "clang-sanitized"
+        "SIVRA_ENABLE_SANITIZERS": "ON"
       }
     }
   ],

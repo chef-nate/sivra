@@ -18,9 +18,9 @@ bool matches_shape(
 ) {
   using enum sivra::program::operand_constraint_kind;
   switch (constraint.kind) {
-  case xmm_register:
+  case register_operand:
     return std::holds_alternative<sivra::x86::unresolved_register_operand>(operand);
-  case xmm_or_memory:
+  case register_or_memory:
     return std::holds_alternative<sivra::x86::unresolved_register_operand>(operand) ||
            std::holds_alternative<sivra::x86::unresolved_memory_operand>(operand);
   case memory:
@@ -73,6 +73,11 @@ core::result_t<program::operand> form_resolver::resolve_operand(
     if (info->bank != register_bank::simd) {
       return core::fail<program::operand>(
         "x86.resolver.invalid_register_class", "x86 resolver expected an XMM register"
+      );
+    }
+    if (!constraint.register_class.empty() && constraint.register_class != "x86.xmm") {
+      return core::fail<program::operand>(
+        "x86.resolver.invalid_register_class", "x86 resolver found an unsupported register class"
       );
     }
     return program::operand(
@@ -178,7 +183,8 @@ core::result_t<program::decoded_program> form_resolver::resolve(
       *block,
       selected->id,
       std::move(operands),
-      context.base_address + static_cast<std::uint64_t>(instruction_index)
+      context.base_address + static_cast<std::uint64_t>(instruction_index),
+      instruction.source
     );
     if (!added.has_value()) {
       return std::unexpected(std::move(added.error()));

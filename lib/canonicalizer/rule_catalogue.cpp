@@ -71,6 +71,18 @@ std::shared_ptr<const rule_catalogue> builtin_rule_catalogue() {
       {
         .metadata =
           {
+            .id = builtin_rules::copy_elimination,
+            .name = "copy_elimination",
+            .phase = pass_phase::local_simplification,
+            .priority = 50,
+            .description = "Remove identity copy operations.",
+            .decreasing_measure = "operation count",
+          },
+        .apply = apply_copy_elimination,
+      },
+      {
+        .metadata =
+          {
             .id = builtin_rules::identity_elimination,
             .name = "identity_elimination",
             .phase = pass_phase::local_simplification,
@@ -95,6 +107,18 @@ std::shared_ptr<const rule_catalogue> builtin_rule_catalogue() {
       {
         .metadata =
           {
+            .id = builtin_rules::bitwise_simplification,
+            .name = "bitwise_simplification",
+            .phase = pass_phase::local_simplification,
+            .priority = 225,
+            .description = "Apply directional and cancellation bitwise identities.",
+            .decreasing_measure = "operand or operation count",
+          },
+        .apply = apply_bitwise_simplification,
+      },
+      {
+        .metadata =
+          {
             .id = builtin_rules::same_operand_simplification,
             .name = "same_operand_simplification",
             .phase = pass_phase::local_simplification,
@@ -115,6 +139,31 @@ std::shared_ptr<const rule_catalogue> builtin_rule_catalogue() {
             .decreasing_measure = "operation count",
           },
         .apply = apply_constant_folding,
+      },
+      {
+        .metadata =
+          {
+            .id = builtin_rules::mixed_constant_aggregation,
+            .name = "mixed_constant_aggregation",
+            .phase = pass_phase::local_simplification,
+            .priority = 350,
+            .description = "Aggregate constant operands within associative expressions.",
+            .decreasing_measure = "constant operand count",
+          },
+        .apply = apply_mixed_constant_aggregation,
+      },
+      {
+        .metadata =
+          {
+            .id = builtin_rules::subtraction_normalization,
+            .name = "subtraction_normalization",
+            .phase = pass_phase::shape_normalization,
+            .priority = 50,
+            .description = "Normalize subtraction to addition with a negative coefficient.",
+            .decreasing_measure = "subtraction operation count",
+            .may_grow = true,
+          },
+        .apply = apply_subtraction_normalization,
       },
       {
         .metadata =
@@ -165,6 +214,31 @@ std::shared_ptr<const rule_catalogue> builtin_rule_catalogue() {
             .may_grow = true,
           },
         .apply = apply_coefficient_collection,
+      },
+      {
+        .metadata =
+          {
+            .id = builtin_rules::division_reciprocal_simplification,
+            .name = "division_reciprocal_simplification",
+            .phase = pass_phase::algebraic_collection,
+            .priority = 200,
+            .description = "Simplify division and reciprocal expressions.",
+            .decreasing_measure = "division depth or inverse pair count",
+            .may_grow = true,
+          },
+        .apply = apply_division_reciprocal_simplification,
+      },
+      {
+        .metadata =
+          {
+            .id = builtin_rules::square_simplification,
+            .name = "square_simplification",
+            .phase = pass_phase::algebraic_collection,
+            .priority = 300,
+            .description = "Normalize repeated factors and square-root pairs.",
+            .decreasing_measure = "repeated factor count or inverse pair depth",
+          },
+        .apply = apply_square_simplification,
       },
     };
     auto created = rule_catalogue::create(std::move(rules));

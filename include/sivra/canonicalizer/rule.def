@@ -6,6 +6,12 @@
  * SIVRA_CANONICALIZER_RULE(name, stable_key, enabled_by_default, description)
  */
 SIVRA_CANONICALIZER_RULE(
+  copy_elimination,
+  "sivra.copy_elimination",
+  true,
+  "Removes identity copy operations."
+)
+SIVRA_CANONICALIZER_RULE(
   associative_flattening,
   "sivra.associative_flattening",
   true,
@@ -48,8 +54,38 @@ SIVRA_CANONICALIZER_RULE(
   "Evaluates operations whose operands are all constants."
 )
 SIVRA_CANONICALIZER_RULE(
+  mixed_constant_aggregation,
+  "sivra.mixed_constant_aggregation",
+  true,
+  "Aggregates constant operands within associative expressions."
+)
+SIVRA_CANONICALIZER_RULE(
+  subtraction_normalization,
+  "sivra.subtraction_normalization",
+  true,
+  "Normalizes subtraction to addition with a negative coefficient."
+)
+SIVRA_CANONICALIZER_RULE(
   coefficient_collection,
   "sivra.coefficient_collection",
   true,
   "Collects coefficients of structurally equal additive terms."
+)
+SIVRA_CANONICALIZER_RULE(
+  division_reciprocal_simplification,
+  "sivra.division_reciprocal_simplification",
+  true,
+  "Simplifies division and reciprocal expressions."
+)
+SIVRA_CANONICALIZER_RULE(
+  bitwise_simplification,
+  "sivra.bitwise_simplification",
+  true,
+  "Applies bitwise identities not expressible as symmetric operation metadata."
+)
+SIVRA_CANONICALIZER_RULE(
+  square_simplification,
+  "sivra.square_simplification",
+  true,
+  "Normalizes repeated factors and inverse square-root pairs."
 )

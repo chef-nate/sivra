@@ -12,7 +12,9 @@ trace_collector::trace_collector(
 }
 
 void trace_collector::record(
-  const rewrite_rule& rule
+  const rewrite_rule& rule,
+  std::optional<ir::structural_digest> old_root,
+  std::optional<ir::structural_digest> new_root
 ) {
   if (!m_enabled) {
     return;
@@ -22,6 +24,8 @@ void trace_collector::record(
       .sequence = m_next_sequence++,
       .rule = rule.metadata.id,
       .phase = rule.metadata.phase,
+      .old_root = old_root,
+      .new_root = new_root,
       .reason = rule.metadata.description,
     }
   );

@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <limits>
+#include <optional>
 #include <utility>
 
 namespace {
@@ -16,7 +18,7 @@ std::string lower(
   return value;
 }
 
-std::uint64_t parse_integer(
+std::optional<std::uint64_t> parse_integer(
   std::string_view text
 ) {
   std::uint64_t value = 0;
@@ -24,7 +26,13 @@ std::uint64_t parse_integer(
   if (base == 16) {
     text.remove_prefix(2);
   }
-  std::from_chars(text.data(), text.data() + text.size(), value, base);
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value, base);
+  if (error != std::errc{} || end != text.data() + text.size()) {
+    return std::nullopt;
+  }
   return value;
 }
 
@@ -80,9 +88,14 @@ core::result_t<std::vector<unresolved_instruction>> parser::parse(
         continue;
       }
       if (tokens[index].kind == token_kind::integer) {
+        auto value = parse_integer(tokens[index].text);
+        if (!value.has_value()) {
+          return core::fail<std::vector<unresolved_instruction>>(
+            "x86.parser.invalid_integer", "x86 parser could not parse integer operand"
+          );
+        }
         instruction.operands.push_back(
-          unresolved_immediate_operand{.value = parse_integer(tokens[index].text),
-                                       .source = tokens[index].source}
+          unresolved_immediate_operand{.value = *value, .source = tokens[index].source}
         );
         instruction.source.end = tokens[index].source.end;
         ++index;
@@ -108,7 +121,15 @@ core::result_t<std::vector<unresolved_instruction>> parser::parse(
               "x86.parser.expected_displacement", "x86 parser expected a memory displacement"
             );
           }
-          const auto displacement = static_cast<std::int64_t>(parse_integer(tokens[index].text));
+          auto parsed_displacement = parse_integer(tokens[index].text);
+          if (!parsed_displacement.has_value() ||
+              *parsed_displacement >
+                static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+            return core::fail<std::vector<unresolved_instruction>>(
+              "x86.parser.invalid_integer", "x86 parser could not parse memory displacement"
+            );
+          }
+          const auto displacement = static_cast<std::int64_t>(*parsed_displacement);
           memory.displacement = negate ? -displacement : displacement;
           ++index;
         }

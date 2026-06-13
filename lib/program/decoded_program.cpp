@@ -1,7 +1,9 @@
 #include <sivra/program/decoded_program.hpp>
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace sivra::program {
 
@@ -80,7 +82,34 @@ core::result_t<void> decoded_program::validate() const {
         "program.decoded_program.invalid_function", "decoded function id is not canonical"
       );
     }
+    if (m_functions[index].name.empty()) {
+      return core::fail<void>(
+        "program.decoded_program.invalid_function", "decoded function name is empty"
+      );
+    }
+    if (m_functions[index].blocks.empty()) {
+      return core::fail<void>(
+        "program.decoded_program.invalid_function", "decoded function has no basic blocks"
+      );
+    }
+    const auto entry = m_functions[index].entry_block;
+    if (entry.owner() != m_owner || entry.index() >= m_blocks.size() ||
+        !std::ranges::contains(m_functions[index].blocks, entry)) {
+      return core::fail<void>(
+        "program.decoded_program.invalid_function",
+        "decoded function entry block does not belong to the function"
+      );
+    }
+    for (const auto block : m_functions[index].blocks) {
+      if (block.owner() != m_owner || block.index() >= m_blocks.size()) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_block_ref",
+          "decoded function references a block outside the decoded program"
+        );
+      }
+    }
   }
+  std::vector<bool> referenced_instructions(m_instructions.size(), false);
   for (std::size_t index = 0; index < m_blocks.size(); ++index) {
     const auto expected =
       basic_block_id::unsafe_from_index(static_cast<std::uint32_t>(index), m_owner);
@@ -96,6 +125,29 @@ core::result_t<void> decoded_program::validate() const {
           "basic block references an instruction outside the decoded program"
         );
       }
+      if (referenced_instructions[instruction.index()]) {
+        return core::fail<void>(
+          "program.decoded_program.duplicate_instruction_ref",
+          "instruction appears in more than one basic-block position"
+        );
+      }
+      referenced_instructions[instruction.index()] = true;
+    }
+    for (const auto successor : m_blocks[index].successors) {
+      if (successor.owner() != m_owner || successor.index() >= m_blocks.size()) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_block_ref",
+          "basic block references a successor outside the decoded program"
+        );
+      }
+    }
+    for (const auto predecessor : m_blocks[index].predecessors) {
+      if (predecessor.owner() != m_owner || predecessor.index() >= m_blocks.size()) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_block_ref",
+          "basic block references a predecessor outside the decoded program"
+        );
+      }
     }
   }
   for (std::size_t index = 0; index < m_instructions.size(); ++index) {
@@ -104,6 +156,12 @@ core::result_t<void> decoded_program::validate() const {
     if (m_instructions[index].id != expected) {
       return core::fail<void>(
         "program.decoded_program.invalid_instruction", "instruction id is not canonical"
+      );
+    }
+    if (!referenced_instructions[index]) {
+      return core::fail<void>(
+        "program.decoded_program.missing_instruction_ref",
+        "instruction is not referenced by any basic block"
       );
     }
   }
@@ -164,7 +222,8 @@ core::result_t<instruction_id> decoded_program_builder::add_instruction(
   basic_block_id block,
   instruction_form_id form,
   std::vector<operand> operands,
-  std::uint64_t address
+  std::uint64_t address,
+  std::optional<core::source_span> source
 ) {
   if (block.owner() != m_owner || block.index() >= m_blocks.size()) {
     return core::fail<instruction_id>(
@@ -180,6 +239,7 @@ core::result_t<instruction_id> decoded_program_builder::add_instruction(
       .form = form,
       .address = address,
       .operands = std::move(operands),
+      .source = std::move(source),
     }
   );
   m_blocks[block.index()].instructions.push_back(id);

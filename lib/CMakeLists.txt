@@ -86,6 +86,7 @@ target_sources(sivra-program
     program/id.cpp
     program/instruction_form.cpp
     program/operand.cpp
+    program/semantic_effect.cpp
 )
 
 target_include_directories(sivra-program
@@ -121,6 +122,7 @@ add_library(sivra::canonicalizer ALIAS sivra-canonicalizer)
 target_sources(sivra-canonicalizer
   PRIVATE
     canonicalizer/configuration.cpp
+    canonicalizer/detail/match.cpp
     canonicalizer/engine.cpp
     canonicalizer/equivalence_contract.cpp
     canonicalizer/evaluator_catalogue.cpp
@@ -133,7 +135,9 @@ target_sources(sivra-canonicalizer
     canonicalizer/trace.cpp
     canonicalizer/worklist.cpp
     canonicalizer/rules/algebraic.cpp
+    canonicalizer/rules/bitwise.cpp
     canonicalizer/rules/constants.cpp
+    canonicalizer/rules/numeric.cpp
     canonicalizer/rules/structural.cpp
 )
 

@@ -24,6 +24,11 @@ rewrite_result apply_identity_elimination(
   const rewrite_subject& subject
 );
 
+rewrite_result apply_copy_elimination(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
 rewrite_result apply_annihilator_collapse(
   rewrite_context& context,
   const rewrite_subject& subject
@@ -39,7 +44,32 @@ rewrite_result apply_constant_folding(
   const rewrite_subject& subject
 );
 
+rewrite_result apply_mixed_constant_aggregation(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_subtraction_normalization(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
 rewrite_result apply_coefficient_collection(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_division_reciprocal_simplification(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_bitwise_simplification(
+  rewrite_context& context,
+  const rewrite_subject& subject
+);
+
+rewrite_result apply_square_simplification(
   rewrite_context& context,
   const rewrite_subject& subject
 );

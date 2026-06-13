@@ -15,7 +15,7 @@ namespace {
 
 class compatibility_encoder {
 public:
-  compatibility_encoder() : m_value("sivra.ir.catalogue.v1;") {}
+  compatibility_encoder() : m_value("sivra.ir.catalogue.v2;") {}
 
   void append_string(
     std::string_view value
@@ -111,6 +111,18 @@ void append_operation_constant(
   );
 }
 
+void append_operation_key(
+  compatibility_encoder& encoder,
+  const std::optional<sivra::ir::operation_key>& value
+) {
+  encoder.append_integer(static_cast<std::uint8_t>(value.has_value()));
+  if (!value.has_value()) {
+    return;
+  }
+  encoder.append_string(value->value());
+  encoder.append_integer(value->version());
+}
+
 std::string key_index_value(
   const sivra::ir::operation_key& key
 ) {
@@ -165,10 +177,82 @@ std::string compatibility_value(
       }
     }
     encoder.append_integer(static_cast<std::uint32_t>(definition->semantics().traits));
+    append_operation_key(encoder, definition->evaluator_key());
     append_operation_constant(encoder, definition->semantics().identity);
     append_operation_constant(encoder, definition->semantics().annihilator);
+    append_operation_constant(encoder, definition->semantics().left_identity);
+    append_operation_constant(encoder, definition->semantics().right_identity);
+    append_operation_constant(encoder, definition->semantics().left_annihilator);
+    append_operation_constant(encoder, definition->semantics().right_annihilator);
   }
   return std::move(encoder).finish();
+}
+
+bool has_trait(
+  sivra::ir::operation_trait traits,
+  sivra::ir::operation_trait required
+) {
+  return (traits & required) == required;
+}
+
+bool has_any_constant(
+  const sivra::ir::operation_semantics& semantics
+) {
+  return semantics.identity.has_value() || semantics.annihilator.has_value() ||
+         semantics.left_identity.has_value() || semantics.right_identity.has_value() ||
+         semantics.left_annihilator.has_value() || semantics.right_annihilator.has_value();
+}
+
+sivra::core::result_t<void> validate_semantics(
+  const sivra::ir::operation_registration& registration
+) {
+  const auto arity = registration.signature.arity;
+  const auto& semantics = registration.semantics;
+  if (semantics.evaluator_key.has_value() &&
+      (semantics.evaluator_key->empty() || semantics.evaluator_key->version() == 0)) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics", "operation evaluator key must not be empty"
+    );
+  }
+  if (has_trait(semantics.traits, sivra::ir::operation_trait::associative) && arity.maximum == 1) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics", "unary operations must not be marked associative"
+    );
+  }
+  if (has_trait(semantics.traits, sivra::ir::operation_trait::commutative) && arity.maximum == 1) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics", "unary operations must not be marked commutative"
+    );
+  }
+  if (has_trait(semantics.traits, sivra::ir::operation_trait::idempotent) && arity.maximum == 1) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics", "unary operations must not be marked idempotent"
+    );
+  }
+  if (has_any_constant(semantics) && arity.minimum == 0) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics",
+      "operation constants require at least one operand in the operation signature"
+    );
+  }
+  if ((semantics.identity.has_value() &&
+       (semantics.left_identity.has_value() || semantics.right_identity.has_value())) ||
+      (semantics.annihilator.has_value() &&
+       (semantics.left_annihilator.has_value() || semantics.right_annihilator.has_value()))) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics",
+      "symmetric and directional operation constants must not be declared together"
+    );
+  }
+  if ((semantics.left_identity.has_value() || semantics.right_identity.has_value() ||
+       semantics.left_annihilator.has_value() || semantics.right_annihilator.has_value()) &&
+      (arity.minimum != 2 || arity.maximum != 2)) {
+    return sivra::core::fail<void>(
+      "ir.catalogue.invalid_semantics",
+      "directional operation constants require a binary operation signature"
+    );
+  }
+  return {};
 }
 
 } // namespace
@@ -315,6 +399,9 @@ core::result_t<std::vector<operation_id>> operation_catalogue_builder::register_
       }
       return std::unexpected(std::move(diagnostics));
     }
+    if (auto validated = validate_semantics(registration); !validated.has_value()) {
+      return std::unexpected(std::move(validated.error()));
+    }
   }
 
   const auto maximum = static_cast<std::size_t>(std::numeric_limits<std::uint32_t>::max());
@@ -370,6 +457,16 @@ core::result_t<void> operation_catalogue_builder::validate() const {
   }
   for (const auto& definition : m_definitions) {
     if (auto validated = definition.signature().validate_definition(); !validated.has_value()) {
+      return std::unexpected(std::move(validated.error()));
+    }
+    const operation_registration registration{
+      .key = definition.stable_key(),
+      .name = std::string(definition.name()),
+      .signature = definition.signature(),
+      .attribute_schema = definition.attribute_schema(),
+      .semantics = definition.semantics(),
+    };
+    if (auto validated = validate_semantics(registration); !validated.has_value()) {
       return std::unexpected(std::move(validated.error()));
     }
   }

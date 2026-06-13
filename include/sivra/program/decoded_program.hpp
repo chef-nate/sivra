@@ -4,6 +4,7 @@
 
 #include <sivra/core/result.hpp>
 
+#include <optional>
 #include <span>
 
 namespace sivra::program {
@@ -61,7 +62,8 @@ public:
     basic_block_id block,
     instruction_form_id form,
     std::vector<operand> operands,
-    std::uint64_t address = 0
+    std::uint64_t address = 0,
+    std::optional<core::source_span> source = std::nullopt
   );
   [[nodiscard]] core::result_t<decoded_program> freeze() &&;
   [[nodiscard]] core::owner_token owner() const;

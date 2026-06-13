@@ -115,6 +115,32 @@ TEST_CASE(
 }
 
 TEST_CASE(
+  "operation catalogue validates semantic metadata"
+) {
+  sivra::ir::operation_catalogue_builder unary_builder;
+  auto unary = registration("unary");
+  unary.signature.arity = {.minimum = 1, .maximum = 1};
+  unary.semantics.traits = sivra::ir::operation_trait::commutative;
+  const auto invalid_trait = unary_builder.register_operation(std::move(unary));
+  REQUIRE(!invalid_trait.has_value());
+  CHECK(invalid_trait.error().front().code == "ir.catalogue.invalid_semantics");
+
+  sivra::ir::operation_catalogue_builder conflicting_builder;
+  auto conflicting = registration("conflicting");
+  conflicting.signature.arity = {.minimum = 2, .maximum = std::nullopt};
+  conflicting.semantics.traits = sivra::ir::operation_trait::commutative;
+  conflicting.semantics.identity = sivra::ir::operation_constant{
+    sivra::ir::well_known_constant::zero,
+  };
+  conflicting.semantics.left_identity = sivra::ir::operation_constant{
+    sivra::ir::well_known_constant::zero,
+  };
+  const auto invalid_constants = conflicting_builder.register_operation(std::move(conflicting));
+  REQUIRE(!invalid_constants.has_value());
+  CHECK(invalid_constants.error().front().code == "ir.catalogue.invalid_semantics");
+}
+
+TEST_CASE(
   "operation identifiers are scoped to one catalogue"
 ) {
   auto lhs = sivra::test_support::make_test_catalogue();
@@ -133,7 +159,18 @@ TEST_CASE(
   CHECK(operations.catalogue->contains("add"));
   CHECK(operations.catalogue->contains("multiply"));
   CHECK(operations.catalogue->contains("subtract"));
+  CHECK(operations.catalogue->contains("divide"));
   CHECK(operations.catalogue->contains("maximum"));
+  CHECK(operations.catalogue->contains("minimum"));
+  CHECK(operations.catalogue->contains("sqrt"));
+  CHECK(operations.catalogue->contains("reciprocal"));
+  CHECK(operations.catalogue->contains("reciprocal_sqrt"));
+  CHECK(operations.catalogue->contains("square"));
+  CHECK(operations.catalogue->contains("bit_and"));
+  CHECK(operations.catalogue->contains("bit_and_not"));
+  CHECK(operations.catalogue->contains("bit_or"));
+  CHECK(operations.catalogue->contains("bit_xor"));
+  CHECK(operations.catalogue->contains("copy"));
   CHECK(!operations.catalogue->contains("constant"));
   CHECK(!operations.catalogue->contains("symbol"));
   CHECK(!operations.catalogue->contains("memory_load"));

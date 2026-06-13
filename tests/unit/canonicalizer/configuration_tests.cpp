@@ -80,15 +80,21 @@ TEST_CASE(
 ) {
   const auto rules = sivra::canonicalizer::available_rules();
 
-  REQUIRE(rules.size() == 8);
-  CHECK(rules[0].id.key() == "sivra.associative_flattening");
-  CHECK(rules[1].id.key() == "sivra.commutative_ordering");
-  CHECK(rules[2].id.key() == "sivra.idempotent_deduplication");
-  CHECK(rules[3].id.key() == "sivra.identity_elimination");
-  CHECK(rules[4].id.key() == "sivra.annihilator_collapse");
-  CHECK(rules[5].id.key() == "sivra.same_operand_simplification");
-  CHECK(rules[6].id.key() == "sivra.constant_folding");
-  CHECK(rules[7].id.key() == "sivra.coefficient_collection");
+  REQUIRE(rules.size() == 14);
+  CHECK(rules[0].id.key() == "sivra.copy_elimination");
+  CHECK(rules[1].id.key() == "sivra.associative_flattening");
+  CHECK(rules[2].id.key() == "sivra.commutative_ordering");
+  CHECK(rules[3].id.key() == "sivra.idempotent_deduplication");
+  CHECK(rules[4].id.key() == "sivra.identity_elimination");
+  CHECK(rules[5].id.key() == "sivra.annihilator_collapse");
+  CHECK(rules[6].id.key() == "sivra.same_operand_simplification");
+  CHECK(rules[7].id.key() == "sivra.constant_folding");
+  CHECK(rules[8].id.key() == "sivra.mixed_constant_aggregation");
+  CHECK(rules[9].id.key() == "sivra.subtraction_normalization");
+  CHECK(rules[10].id.key() == "sivra.coefficient_collection");
+  CHECK(rules[11].id.key() == "sivra.division_reciprocal_simplification");
+  CHECK(rules[12].id.key() == "sivra.bitwise_simplification");
+  CHECK(rules[13].id.key() == "sivra.square_simplification");
   CHECK(rules[0].enabled_by_default);
 }
 

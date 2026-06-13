@@ -54,17 +54,25 @@ TEST_CASE(
   CHECK(plans[0].phase == sivra::canonicalizer::pass_phase::validation);
   CHECK(plans[1].phase == sivra::canonicalizer::pass_phase::local_simplification);
   CHECK(plans[2].phase == sivra::canonicalizer::pass_phase::shape_normalization);
-  REQUIRE(plans[1].rules.size() == 4);
-  CHECK(plans[1].rules[0] == sivra::canonicalizer::builtin_rules::identity_elimination);
-  CHECK(plans[1].rules[1] == sivra::canonicalizer::builtin_rules::annihilator_collapse);
-  CHECK(plans[1].rules[2] == sivra::canonicalizer::builtin_rules::same_operand_simplification);
-  CHECK(plans[1].rules[3] == sivra::canonicalizer::builtin_rules::constant_folding);
-  REQUIRE(plans[2].rules.size() == 3);
-  CHECK(plans[2].rules[0] == sivra::canonicalizer::builtin_rules::associative_flattening);
-  CHECK(plans[2].rules[1] == sivra::canonicalizer::builtin_rules::commutative_ordering);
-  CHECK(plans[2].rules[2] == sivra::canonicalizer::builtin_rules::idempotent_deduplication);
-  REQUIRE(plans[3].rules.size() == 1);
+  REQUIRE(plans[1].rules.size() == 7);
+  CHECK(plans[1].rules[0] == sivra::canonicalizer::builtin_rules::copy_elimination);
+  CHECK(plans[1].rules[1] == sivra::canonicalizer::builtin_rules::identity_elimination);
+  CHECK(plans[1].rules[2] == sivra::canonicalizer::builtin_rules::annihilator_collapse);
+  CHECK(plans[1].rules[3] == sivra::canonicalizer::builtin_rules::bitwise_simplification);
+  CHECK(plans[1].rules[4] == sivra::canonicalizer::builtin_rules::same_operand_simplification);
+  CHECK(plans[1].rules[5] == sivra::canonicalizer::builtin_rules::constant_folding);
+  CHECK(plans[1].rules[6] == sivra::canonicalizer::builtin_rules::mixed_constant_aggregation);
+  REQUIRE(plans[2].rules.size() == 4);
+  CHECK(plans[2].rules[0] == sivra::canonicalizer::builtin_rules::subtraction_normalization);
+  CHECK(plans[2].rules[1] == sivra::canonicalizer::builtin_rules::associative_flattening);
+  CHECK(plans[2].rules[2] == sivra::canonicalizer::builtin_rules::commutative_ordering);
+  CHECK(plans[2].rules[3] == sivra::canonicalizer::builtin_rules::idempotent_deduplication);
+  REQUIRE(plans[3].rules.size() == 3);
   CHECK(plans[3].rules[0] == sivra::canonicalizer::builtin_rules::coefficient_collection);
+  CHECK(
+    plans[3].rules[1] == sivra::canonicalizer::builtin_rules::division_reciprocal_simplification
+  );
+  CHECK(plans[3].rules[2] == sivra::canonicalizer::builtin_rules::square_simplification);
   CHECK(engine.scheduler().validate(engine.rules()).has_value());
 }
 

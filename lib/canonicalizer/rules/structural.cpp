@@ -9,6 +9,8 @@ rewrite_result apply_associative_flattening(
   rewrite_context& context,
   const rewrite_subject& subject
 ) {
+  constexpr std::size_t maximum_flattened_operands = 64;
+
   const auto& definition = context.operation(subject.operation);
   if (!context.is_trait_enabled(ir::operation_trait::associative) ||
       !definition.has_trait(ir::operation_trait::associative) || subject.operands.size() < 2) {
@@ -24,7 +26,8 @@ rewrite_result apply_associative_flattening(
     const auto* application = child.get_if_operation();
     if (application == nullptr || application->operation != subject.operation ||
         child.result_type() != subject.result_type ||
-        application->attributes != subject.attributes || application->operands.size() < 2) {
+        application->attributes != subject.attributes || application->operands.size() < 2 ||
+        flattened.size() + application->operands.size() > maximum_flattened_operands) {
       flattened.push_back(operand);
       continue;
     }

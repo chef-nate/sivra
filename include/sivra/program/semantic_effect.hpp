@@ -2,6 +2,7 @@
 
 #include "machine_location.hpp"
 
+#include <sivra/core/result.hpp>
 #include <sivra/ir/value_type.hpp>
 
 #include <cstddef>
@@ -48,8 +49,8 @@ enum class lane_operation {
   minimum_f32,
   maximum_f32,
   sqrt_f32,
-  reciprocal_f32,
-  reciprocal_sqrt_f32,
+  approximate_reciprocal_f32,
+  approximate_reciprocal_sqrt_f32,
   bit_and,
   bit_and_not,
   bit_or,
@@ -147,5 +148,9 @@ struct instruction_semantics {
   bool unsupported = false;
   std::string unsupported_reason;
 };
+
+[[nodiscard]] core::result_t<void> validate_vector_value(
+  const vector_value& value
+);
 
 } // namespace sivra::program

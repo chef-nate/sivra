@@ -1,6 +1,7 @@
 #pragma once
 
 #include "id.hpp"
+#include "operand.hpp"
 
 #include <sivra/core/result.hpp>
 
@@ -15,8 +16,8 @@
 namespace sivra::program {
 
 enum class operand_constraint_kind {
-  xmm_register,
-  xmm_or_memory,
+  register_operand,
+  register_or_memory,
   memory,
   immediate,
 };
@@ -28,10 +29,11 @@ enum class operand_access {
 };
 
 struct operand_constraint {
-  operand_constraint_kind kind = operand_constraint_kind::xmm_register;
+  operand_constraint_kind kind = operand_constraint_kind::register_operand;
   operand_access access = operand_access::read;
   std::uint32_t width = 0;
   std::optional<std::uint32_t> immediate_width;
+  std::string register_class;
 };
 
 struct instruction_form_definition {
@@ -41,6 +43,11 @@ struct instruction_form_definition {
   std::vector<operand_constraint> operands;
   std::string semantic_key;
 };
+
+[[nodiscard]] core::result_t<void> validate_instruction_operands(
+  const instruction_form_definition& form,
+  std::span<const operand> operands
+);
 
 class instruction_catalogue {
 public:

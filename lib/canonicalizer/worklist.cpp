@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <set>
 #include <utility>
@@ -99,8 +100,27 @@ worklist_result worklist_engine::run(
     ++m_termination->statistics().nodes_created;
     return *result;
   };
+  const auto resolved = [&](ir::node_id source_id) -> std::optional<ir::node_id> {
+    if (source_id.owner() != source.owner() || source_id.index() >= copied.size()) {
+      return std::nullopt;
+    }
+    return copied[source_id.index()];
+  };
+  const auto node_matches_subject =
+    [&](ir::node_id candidate, const rewrite_subject& subject) -> bool {
+    if (!output.contains(candidate)) {
+      return false;
+    }
+    const auto* application = output.at(candidate).get_if_operation();
+    return application != nullptr && application->operation == subject.operation &&
+           output.at(candidate).result_type() == subject.result_type &&
+           application->attributes == subject.attributes &&
+           application->operands == subject.operands;
+  };
 
   std::vector<bool> reachable(source.size(), false);
+  std::vector<std::uint32_t> reachable_order;
+  reachable_order.reserve(source.size());
   std::vector<ir::node_id> pending(roots.begin(), roots.end());
   while (!pending.empty()) {
     const auto current = pending.back();
@@ -126,15 +146,29 @@ worklist_result worklist_engine::run(
       continue;
     }
     reachable[current.index()] = true;
+    reachable_order.push_back(current.index());
     for (const auto operand : source.at(current).operands()) {
       pending.push_back(operand);
     }
   }
 
+  std::ranges::sort(reachable_order);
+  std::vector<std::vector<std::uint32_t>> users(source.size());
   for (std::size_t index = 0; index < reachable.size(); ++index) {
     if (!reachable[index]) {
       continue;
     }
+    const auto source_id =
+      ir::node_id::unsafe_from_index(static_cast<std::uint32_t>(index), source.owner());
+    for (const auto operand : source.at(source_id).operands()) {
+      if (operand.owner() == source.owner() && operand.index() < users.size() &&
+          reachable[operand.index()]) {
+        users[operand.index()].push_back(static_cast<std::uint32_t>(index));
+      }
+    }
+  }
+
+  for (const auto index : reachable_order) {
     if (count_imports) {
       if (auto exhausted = m_termination->consume_import()) {
         exhaust(std::move(*exhausted));
@@ -142,21 +176,18 @@ worklist_result worklist_engine::run(
       }
     }
 
-    const auto source_id =
-      ir::node_id::unsafe_from_index(static_cast<std::uint32_t>(index), source.owner());
+    const auto source_id = ir::node_id::unsafe_from_index(index, source.owner());
     const auto& source_node = source.at(source_id);
-    const auto output_size_before_node = output.size();
     std::vector<ir::node_id> operands;
     operands.reserve(source_node.operands().size());
-    bool operands_available = true;
     for (const auto operand : source_node.operands()) {
-      if (!copied[operand.index()].has_value()) {
-        operands_available = false;
+      auto mapped = resolved(operand);
+      if (!mapped.has_value()) {
         break;
       }
-      operands.push_back(*copied[operand.index()]);
+      operands.push_back(*mapped);
     }
-    if (!operands_available || !observe_build()) {
+    if (operands.size() != source_node.operands().size() || !observe_build()) {
       break;
     }
 
@@ -174,6 +205,70 @@ worklist_result worklist_engine::run(
     } else if (source_node.get_if_merge() != nullptr) {
       result = built_node(builder.make_merge(operands, source_node.result_type()));
     } else if (const auto* application = source_node.get_if_operation()) {
+      result = built_node(builder.apply(
+        application->operation, operands, application->attributes, source_node.result_type()
+      ));
+    } else {
+      add_diagnostic(
+        {
+          .code = "canonicalizer.invalid_payload",
+          .severity = core::diagnostic_severity::error,
+          .message = "source node has an unsupported payload kind",
+        },
+        core::analysis_status::internal_failure
+      );
+    }
+
+    if (!result.has_value()) {
+      break;
+    }
+    copied[index] = *result;
+  }
+
+  if (rewriting_enabled && status == core::analysis_status::complete) {
+    std::deque<std::uint32_t> queue;
+    std::vector<bool> queued(source.size(), false);
+    const auto enqueue = [&](std::uint32_t index) {
+      if (!reachable[index] || queued[index]) {
+        return;
+      }
+      queue.push_back(index);
+      queued[index] = true;
+    };
+    for (const auto index : reachable_order) {
+      if (source.at(ir::node_id::unsafe_from_index(index, source.owner())).get_if_operation() !=
+          nullptr) {
+        enqueue(index);
+      }
+    }
+
+    while (!queue.empty() && rewriting_enabled) {
+      const auto index = queue.front();
+      queue.pop_front();
+      queued[index] = false;
+
+      const auto source_id = ir::node_id::unsafe_from_index(index, source.owner());
+      const auto& source_node = source.at(source_id);
+      const auto* application = source_node.get_if_operation();
+      if (application == nullptr || !copied[index].has_value()) {
+        continue;
+      }
+      auto old_replacement = *copied[index];
+      std::vector<ir::node_id> operands;
+      operands.reserve(application->operands.size());
+      bool operands_available = true;
+      for (const auto operand : application->operands) {
+        auto mapped = resolved(operand);
+        if (!mapped.has_value()) {
+          operands_available = false;
+          break;
+        }
+        operands.push_back(*mapped);
+      }
+      if (!operands_available) {
+        continue;
+      }
+
       rewrite_subject subject{
         .operation = application->operation,
         .result_type = source_node.result_type(),
@@ -189,6 +284,8 @@ worklist_result worklist_engine::run(
         m_termination->statistics().nodes_created
       );
       std::set<subject_state> states{make_subject_state(subject)};
+      std::vector<const rewrite_rule*> applied_rules;
+      std::optional<ir::node_id> final_node;
       bool replaced = false;
 
       while (rewriting_enabled) {
@@ -248,9 +345,8 @@ worklist_result worklist_engine::run(
               exhaust(std::move(*exhausted));
               break;
             }
-            changed = true;
-            m_trace->record(*rule);
-            result = replacement->replacement;
+            applied_rules.push_back(rule);
+            final_node = replacement->replacement;
             ++m_termination->statistics().nodes_reused;
             replaced = true;
             break;
@@ -290,8 +386,7 @@ worklist_result worklist_engine::run(
             exhaust(std::move(*exhausted));
             break;
           }
-          changed = true;
-          m_trace->record(*rule);
+          applied_rules.push_back(rule);
           subject = std::move(next);
           restart = true;
           break;
@@ -301,36 +396,53 @@ worklist_result worklist_engine::run(
         }
       }
 
-      if (!result.has_value()) {
-        if (output.size() != output_size_before_node && !observe_build()) {
-          break;
-        }
-        result = built_node(builder.apply(
-          subject.operation, subject.operands, subject.attributes, subject.result_type
-        ));
+      if (!rewriting_enabled && status != core::analysis_status::complete) {
+        break;
       }
-    } else {
-      add_diagnostic(
-        {
-          .code = "canonicalizer.invalid_payload",
-          .severity = core::diagnostic_severity::error,
-          .message = "source node has an unsupported payload kind",
-        },
-        core::analysis_status::internal_failure
-      );
-    }
+      if (!final_node.has_value()) {
+        if (node_matches_subject(old_replacement, subject)) {
+          final_node = old_replacement;
+        } else {
+          if (!observe_build()) {
+            break;
+          }
+          final_node = built_node(builder.apply(
+            subject.operation, subject.operands, subject.attributes, subject.result_type
+          ));
+        }
+      }
+      if (!final_node.has_value()) {
+        break;
+      }
+      if (*final_node == old_replacement) {
+        continue;
+      }
 
-    if (!result.has_value()) {
-      break;
+      const auto old_digest = structural.hash(output, old_replacement);
+      const auto new_digest = structural.hash(output, *final_node);
+      copied[index] = *final_node;
+      changed = true;
+      for (const auto* rule : applied_rules) {
+        m_trace->record(*rule, old_digest, new_digest);
+      }
+      for (const auto user : users[index]) {
+        enqueue(user);
+      }
     }
-    if (auto recorded = mapping.record(source_id, *result); !recorded.has_value()) {
+  }
+
+  for (const auto index : reachable_order) {
+    if (!copied[index].has_value()) {
+      continue;
+    }
+    const auto source_id = ir::node_id::unsafe_from_index(index, source.owner());
+    if (auto recorded = mapping.record(source_id, *copied[index]); !recorded.has_value()) {
       for (auto& diagnostic : recorded.error()) {
         diagnostics.push_back(std::move(diagnostic));
       }
       status = core::analysis_status::internal_failure;
       break;
     }
-    copied[index] = *result;
   }
 
   std::vector<ir::node_id> output_roots;

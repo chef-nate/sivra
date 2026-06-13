@@ -61,13 +61,6 @@ struct operation_constant {
   operation_constant_value element;
 };
 
-struct operation_semantics {
-  operation_trait traits = operation_trait::none;
-  std::optional<operation_constant> identity;
-  std::optional<operation_constant> annihilator;
-  std::string notes;
-};
-
 class operation_key {
 public:
   operation_key() = default;
@@ -93,6 +86,18 @@ private:
   std::uint32_t m_version = 1;
 };
 
+struct operation_semantics {
+  operation_trait traits = operation_trait::none;
+  std::optional<operation_key> evaluator_key;
+  std::optional<operation_constant> identity;
+  std::optional<operation_constant> annihilator;
+  std::optional<operation_constant> left_identity;
+  std::optional<operation_constant> right_identity;
+  std::optional<operation_constant> left_annihilator;
+  std::optional<operation_constant> right_annihilator;
+  std::string notes;
+};
+
 class operation_def {
 public:
   operation_def(
@@ -111,6 +116,7 @@ public:
   [[nodiscard]] const operation_signature& signature() const;
   [[nodiscard]] const operation_attribute_schema& attribute_schema() const;
   [[nodiscard]] const operation_semantics& semantics() const;
+  [[nodiscard]] const std::optional<operation_key>& evaluator_key() const;
   [[nodiscard]] bool has_trait(
     operation_trait trait
   ) const;

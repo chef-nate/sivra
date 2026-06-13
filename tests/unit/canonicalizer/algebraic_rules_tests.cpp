@@ -8,6 +8,7 @@
 #include <doctest/doctest.h>
 
 #include <array>
+#include <limits>
 #include <string>
 
 namespace {
@@ -185,6 +186,9 @@ TEST_CASE(
             .has_value());
   REQUIRE(configuration.disable_rule(sivra::canonicalizer::builtin_rules::annihilator_collapse)
             .has_value());
+  REQUIRE(configuration
+            .disable_rule(sivra::canonicalizer::builtin_rules::mixed_constant_aggregation)
+            .has_value());
 
   CHECK(canonical_expression(fixture, root, configuration) == "multiply(0, 1, x)");
 }
@@ -299,4 +303,182 @@ TEST_CASE(
   const auto root = fixture.apply(fixture.operations.builtins.add, {twice, thrice});
 
   CHECK(canonical_expression(fixture, root) == "multiply(5, x)");
+}
+
+TEST_CASE(
+  "mixed constant aggregation combines constants inside larger expressions"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto y = fixture.symbol("y");
+  const auto add =
+    fixture.apply(fixture.operations.builtins.add, {fixture.f32(2.0F), x, fixture.f32(3.0F), y});
+  const auto multiply =
+    fixture.apply(fixture.operations.builtins.multiply, {x, fixture.f32(2.0F), fixture.f32(3.0F)});
+  const auto maximum =
+    fixture.apply(fixture.operations.builtins.maximum, {x, fixture.f32(3.0F), fixture.f32(5.0F)});
+  const auto minimum =
+    fixture.apply(fixture.operations.builtins.minimum, {x, fixture.f32(3.0F), fixture.f32(5.0F)});
+
+  CHECK(canonical_expression(fixture, add) == "add(5, x, y)");
+  CHECK(canonical_expression(fixture, multiply) == "multiply(6, x)");
+  CHECK(canonical_expression(fixture, maximum) == "maximum(5, x)");
+  CHECK(canonical_expression(fixture, minimum) == "minimum(3, x)");
+}
+
+TEST_CASE(
+  "subtraction normalizes to addition with a negative coefficient"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto y = fixture.symbol("y");
+  const auto general = fixture.apply(fixture.operations.builtins.subtract, {x, y});
+  const auto constant = fixture.apply(fixture.operations.builtins.subtract, {x, fixture.f32(3.0F)});
+  const auto negated = fixture.apply(fixture.operations.builtins.subtract, {fixture.f32(0.0F), x});
+
+  CHECK(canonical_expression(fixture, general) == "add(x, multiply(-1, y))");
+  CHECK(canonical_expression(fixture, constant) == "add(-3, x)");
+  CHECK(canonical_expression(fixture, negated) == "multiply(-1, x)");
+}
+
+TEST_CASE(
+  "coefficient collection cancels and combines negative terms"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto negative =
+    fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(-1.0F), x});
+  const auto twice = fixture.apply(fixture.operations.builtins.multiply, {fixture.f32(2.0F), x});
+  const auto cancelled = fixture.apply(fixture.operations.builtins.add, {x, negative});
+  const auto reduced = fixture.apply(fixture.operations.builtins.add, {twice, negative});
+
+  CHECK(canonical_expression(fixture, cancelled) == "0");
+  CHECK(canonical_expression(fixture, reduced) == "x");
+}
+
+TEST_CASE(
+  "division and reciprocal rules simplify localized inverse expressions"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto a = fixture.symbol("a");
+  const auto b = fixture.symbol("b");
+  const auto c = fixture.symbol("c");
+  const auto divide_by_one =
+    fixture.apply(fixture.operations.builtins.divide, {x, fixture.f32(1.0F)});
+  const auto zero_divided =
+    fixture.apply(fixture.operations.builtins.divide, {fixture.f32(0.0F), x});
+  const auto zero_by_zero =
+    fixture.apply(fixture.operations.builtins.divide, {fixture.f32(0.0F), fixture.f32(0.0F)});
+  const auto self_divided = fixture.apply(fixture.operations.builtins.divide, {x, x});
+  const auto divide_by_constant =
+    fixture.apply(fixture.operations.builtins.divide, {x, fixture.f32(4.0F)});
+  const auto product = fixture.apply(fixture.operations.builtins.multiply, {a, b, c});
+  const auto cancelled_factor = fixture.apply(fixture.operations.builtins.divide, {product, b});
+  const auto reciprocal = fixture.apply(fixture.operations.builtins.reciprocal, {x});
+  const auto double_reciprocal =
+    fixture.apply(fixture.operations.builtins.reciprocal, {reciprocal});
+  const auto inverse_product = fixture.apply(fixture.operations.builtins.multiply, {x, reciprocal});
+
+  CHECK(canonical_expression(fixture, divide_by_one) == "x");
+  CHECK(canonical_expression(fixture, zero_divided) == "divide(0, x)");
+  CHECK(canonical_expression(fixture, zero_by_zero) == "nan");
+  CHECK(canonical_expression(fixture, self_divided) == "divide(x, x)");
+  CHECK(canonical_expression(fixture, divide_by_constant) == "multiply(0.25, x)");
+  CHECK(canonical_expression(fixture, cancelled_factor) == "divide(multiply(a, b, c), b)");
+  CHECK(canonical_expression(fixture, double_reciprocal) == "x");
+  CHECK(canonical_expression(fixture, inverse_product) != "1");
+}
+
+TEST_CASE(
+  "bitwise rules apply identities cancellation and and-not direction"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x", sivra::ir::value_type::i32());
+  const auto y = fixture.symbol("y", sivra::ir::value_type::i32());
+  const auto zero = fixture.i32(0);
+  const auto all_ones = fixture.i32(-1);
+  const auto apply =
+    [&](sivra::ir::operation_id operation, std::initializer_list<sivra::ir::node_id> operands) {
+      return fixture.apply(operation, operands, sivra::ir::value_type::i32());
+    };
+
+  CHECK(canonical_expression(fixture, apply(fixture.operations.builtins.bit_and, {x, x})) == "x");
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and, {x, zero})) == "0"
+  );
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and, {x, all_ones})) == "x"
+  );
+  CHECK(canonical_expression(fixture, apply(fixture.operations.builtins.bit_or, {x, zero})) == "x");
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_or, {x, all_ones})) == "-1"
+  );
+  CHECK(canonical_expression(fixture, apply(fixture.operations.builtins.bit_xor, {x, x})) == "0");
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_xor, {x, x, y})) == "y"
+  );
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and_not, {zero, x})) == "x"
+  );
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and_not, {all_ones, x})) ==
+    "0"
+  );
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and_not, {x, zero})) == "0"
+  );
+  CHECK(
+    canonical_expression(fixture, apply(fixture.operations.builtins.bit_and_not, {x, x})) == "0"
+  );
+}
+
+TEST_CASE(
+  "minimum and maximum flatten order deduplicate and fold constants"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto a = fixture.symbol("a");
+  const auto b = fixture.symbol("b");
+  const auto c = fixture.symbol("c");
+  const auto nested = fixture.apply(fixture.operations.builtins.maximum, {c, a});
+  const auto maximum = fixture.apply(fixture.operations.builtins.maximum, {nested, b, a});
+  const auto minimum = fixture.apply(
+    fixture.operations.builtins.minimum,
+    {fixture.symbol("z"), fixture.f32(8.0F), fixture.f32(2.0F), fixture.f32(5.0F)}
+  );
+  const auto positive_infinity = fixture.f32(std::numeric_limits<float>::infinity());
+  const auto negative_infinity = fixture.f32(-std::numeric_limits<float>::infinity());
+  const auto maximum_identity =
+    fixture.apply(fixture.operations.builtins.maximum, {a, negative_infinity});
+  const auto maximum_annihilator =
+    fixture.apply(fixture.operations.builtins.maximum, {a, positive_infinity});
+  const auto minimum_identity =
+    fixture.apply(fixture.operations.builtins.minimum, {a, positive_infinity});
+  const auto minimum_annihilator =
+    fixture.apply(fixture.operations.builtins.minimum, {a, negative_infinity});
+
+  CHECK(canonical_expression(fixture, maximum) == "maximum(a, b, c)");
+  CHECK(canonical_expression(fixture, minimum) == "minimum(2, z)");
+  CHECK(canonical_expression(fixture, maximum_identity) == "a");
+  CHECK(canonical_expression(fixture, maximum_annihilator) == "inf");
+  CHECK(canonical_expression(fixture, minimum_identity) == "a");
+  CHECK(canonical_expression(fixture, minimum_annihilator) == "-inf");
+}
+
+TEST_CASE(
+  "square sqrt and copy rules normalize to stable low-level forms"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto product = fixture.apply(fixture.operations.builtins.multiply, {x, x});
+  const auto square = fixture.apply(fixture.operations.builtins.square, {x});
+  const auto sqrt = fixture.apply(fixture.operations.builtins.sqrt, {x});
+  const auto sqrt_square = fixture.apply(fixture.operations.builtins.sqrt, {square});
+  const auto square_sqrt = fixture.apply(fixture.operations.builtins.square, {sqrt});
+  const auto copy = fixture.apply(fixture.operations.builtins.copy, {x});
+
+  CHECK(canonical_expression(fixture, product) == "square(x)");
+  CHECK(canonical_expression(fixture, sqrt_square) == "sqrt(square(x))");
+  CHECK(canonical_expression(fixture, square_sqrt) == "square(sqrt(x))");
+  CHECK(canonical_expression(fixture, copy) == "x");
 }

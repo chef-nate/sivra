@@ -44,12 +44,22 @@ TEST_CASE(
 
   CHECK(result.roots[0] == result.roots[1]);
   const auto root_operands = result.graph.at(result.roots[0]).operands();
-  REQUIRE(root_operands.size() == 2);
-  const auto lhs_operands = result.graph.at(root_operands[0]).operands();
-  const auto rhs_operands = result.graph.at(root_operands[1]).operands();
-  CHECK(std::ranges::any_of(lhs_operands, [&](sivra::ir::node_id lhs_operand) {
-    return std::ranges::find(rhs_operands, lhs_operand) != rhs_operands.end();
-  }));
+  REQUIRE(root_operands.size() == 3);
+  const auto shared_operand = std::ranges::find_if(root_operands, [&](sivra::ir::node_id operand) {
+    return result.graph.at(operand).get_if_symbol() != nullptr;
+  });
+  REQUIRE(shared_operand != root_operands.end());
+  const auto maximum_operand = std::ranges::find_if(root_operands, [&](sivra::ir::node_id operand) {
+    const auto* application = result.graph.at(operand).get_if_operation();
+    return application != nullptr &&
+           result.graph.catalogue().operation(application->operation).stable_key() ==
+             sivra::ir::operation_key("maximum");
+  });
+  REQUIRE(maximum_operand != root_operands.end());
+  CHECK(
+    std::ranges::find(result.graph.at(*maximum_operand).operands(), *shared_operand) !=
+    result.graph.at(*maximum_operand).operands().end()
+  );
 }
 
 TEST_CASE(

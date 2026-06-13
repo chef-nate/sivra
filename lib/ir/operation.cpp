@@ -76,6 +76,10 @@ const operation_semantics& operation_def::semantics() const {
   return m_semantics;
 }
 
+const std::optional<operation_key>& operation_def::evaluator_key() const {
+  return m_semantics.evaluator_key;
+}
+
 bool operation_def::has_trait(
   operation_trait trait
 ) const {

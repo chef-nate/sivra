@@ -11,6 +11,7 @@
 
 #include <CLI/CLI.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -108,10 +109,25 @@ std::string format_constant(
   return formatted;
 }
 
+std::string indentation(
+  std::size_t depth
+) {
+  return std::string(depth * 2, ' ');
+}
+
+bool is_compound_expression(
+  const sivra::ir::expression_graph& graph,
+  sivra::ir::node_id root
+) {
+  const auto& node = graph.at(root);
+  return node.get_if_operation() != nullptr || node.get_if_merge() != nullptr;
+}
+
 std::string format_expression(
   const sivra::ir::expression_graph& graph,
   sivra::ir::node_id root,
-  std::span<const sivra::compat::raw_memory_operand> external_values
+  std::span<const sivra::compat::raw_memory_operand> external_values,
+  std::size_t depth = 0
 ) {
   const auto& node = graph.at(root);
   if (const auto* constant = node.get_if_constant()) {
@@ -130,30 +146,43 @@ std::string format_expression(
     return "unknown(" + unknown->reason + ")";
   }
   if (const auto* merge = node.get_if_merge()) {
-    auto formatted = std::string("merge(");
+    const auto needs_block = std::ranges::any_of(merge->incoming, [&](const auto incoming) {
+      return is_compound_expression(graph, incoming);
+    });
+    auto formatted = needs_block ? std::string("merge(\n") : std::string("merge(");
     bool first = true;
     for (const auto incoming : merge->incoming) {
       if (!first) {
-        formatted += ", ";
+        formatted += needs_block ? ",\n" : ", ";
       }
       first = false;
-      formatted += format_expression(graph, incoming, external_values);
+      if (needs_block) {
+        formatted += indentation(depth + 1);
+      }
+      formatted += format_expression(graph, incoming, external_values, depth + 1);
     }
-    formatted += ")";
+    formatted += needs_block ? "\n" + indentation(depth) + ")" : ")";
     return formatted;
   }
 
   const auto& application = std::get<sivra::ir::operation_application>(node.payload());
-  auto formatted = display_name(graph.catalogue().operation(application.operation).name()) + "(";
+  const auto needs_block = std::ranges::any_of(application.operands, [&](const auto child) {
+    return is_compound_expression(graph, child);
+  });
+  auto formatted = display_name(graph.catalogue().operation(application.operation).name()) +
+                   (needs_block ? "(\n" : "(");
   bool first = true;
   for (const auto child : application.operands) {
     if (!first) {
-      formatted += ", ";
+      formatted += needs_block ? ",\n" : ", ";
     }
     first = false;
-    formatted += format_expression(graph, child, external_values);
+    if (needs_block) {
+      formatted += indentation(depth + 1);
+    }
+    formatted += format_expression(graph, child, external_values, depth + 1);
   }
-  formatted += ")";
+  formatted += needs_block ? "\n" + indentation(depth) + ")" : ")";
   return formatted;
 }
 
@@ -297,6 +326,7 @@ int main(
       return EXIT_SUCCESS;
     }
 
+    bool first_output = true;
     for (const auto& expression : sivra::tool::example_expressions(example)) {
       const auto path =
         std::filesystem::path(sivra::tool::fixture_directory()) / expression.file_name;
@@ -310,10 +340,13 @@ int main(
       if (!canonicalized.root.has_value()) {
         throw std::runtime_error(diagnostic_message(canonicalized.diagnostics));
       }
+      if (!first_output) {
+        std::println("");
+      }
+      first_output = false;
+      std::println("{}:", expression.output);
       std::println(
-        "{}: {}",
-        expression.output,
-        format_expression(canonicalized.graph, *canonicalized.root, loaded->external_values)
+        "{}", format_expression(canonicalized.graph, *canonicalized.root, loaded->external_values)
       );
     }
   } catch (const std::exception& error) {

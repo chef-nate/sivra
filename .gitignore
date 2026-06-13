@@ -10,3 +10,5 @@ AGENTS.md
 .agents/
 .venv/
 ignored/
+graphify-out/
+.graphifyignore

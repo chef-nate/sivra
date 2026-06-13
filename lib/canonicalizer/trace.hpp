@@ -3,6 +3,7 @@
 #include <sivra/canonicalizer/rewrite.hpp>
 #include <sivra/canonicalizer/trace.hpp>
 
+#include <optional>
 #include <vector>
 
 namespace sivra::canonicalizer {
@@ -19,7 +20,9 @@ public:
   );
 
   void record(
-    const rewrite_rule& rule
+    const rewrite_rule& rule,
+    std::optional<ir::structural_digest> old_root,
+    std::optional<ir::structural_digest> new_root
   );
 
   [[nodiscard]] checkpoint mark() const;

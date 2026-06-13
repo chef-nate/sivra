@@ -21,27 +21,24 @@ option(
 )
 option(SIVRA_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
 option(SIVRA_ENABLE_COVERAGE "Enable compiler coverage instrumentation" OFF)
-set(SIVRA_RUNTIME_OUTPUT_VARIANT
-    ""
-    CACHE STRING
-    "Name of the bin/ subdirectory used for built executables."
-)
-
-if(NOT SIVRA_RUNTIME_OUTPUT_VARIANT)
-  if(CMAKE_BINARY_DIR MATCHES "/([^/]+)$")
-    set(SIVRA_RUNTIME_OUTPUT_VARIANT "${CMAKE_MATCH_1}")
-  elseif(CMAKE_BUILD_TYPE)
-    string(TOLOWER "${CMAKE_BUILD_TYPE}" SIVRA_RUNTIME_OUTPUT_VARIANT)
-  else()
-    set(SIVRA_RUNTIME_OUTPUT_VARIANT "default")
-  endif()
-endif()
-
 set(SIVRA_RUNTIME_OUTPUT_DIRECTORY
-    "${PROJECT_SOURCE_DIR}/bin/${SIVRA_RUNTIME_OUTPUT_VARIANT}"
+    ""
     CACHE PATH
     "Directory where SIVRA executable targets are written."
 )
+set(SIVRA_LEGACY_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
+if(CMAKE_BINARY_DIR MATCHES "/([^/]+)$")
+  set(SIVRA_LEGACY_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/${CMAKE_MATCH_1}")
+endif()
+if(NOT SIVRA_RUNTIME_OUTPUT_DIRECTORY OR
+   SIVRA_RUNTIME_OUTPUT_DIRECTORY STREQUAL SIVRA_LEGACY_RUNTIME_OUTPUT_DIRECTORY)
+  set(SIVRA_RUNTIME_OUTPUT_DIRECTORY
+      "${PROJECT_BINARY_DIR}/bin"
+      CACHE PATH
+      "Directory where SIVRA executable targets are written."
+      FORCE
+  )
+endif()
 
 function(sivra_apply_build_options target)
   if(SIVRA_ENABLE_SANITIZERS)

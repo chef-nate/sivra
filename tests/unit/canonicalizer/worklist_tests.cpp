@@ -1,3 +1,4 @@
+#include "../../support/expression_format.hpp"
 #include "../../support/graph_builder_fixture.hpp"
 
 #include <sivra/canonicalizer/engine.hpp>
@@ -116,6 +117,28 @@ TEST_CASE(
   CHECK(result.graph.validate().has_value());
   REQUIRE(!result.diagnostics.empty());
   CHECK(result.diagnostics.front().code == "canonicalizer.oscillation");
+}
+
+TEST_CASE(
+  "worklist propagates operand replacements through users"
+) {
+  sivra::test_support::graph_builder_fixture fixture;
+  const auto x = fixture.symbol("x");
+  const auto product = fixture.apply(fixture.operations.builtins.multiply, {x, fixture.f32(1.0F)});
+  const auto root = fixture.apply(fixture.operations.builtins.add, {product, fixture.f32(0.0F)});
+  sivra::canonicalizer::configuration configuration;
+  configuration.set_collect_trace(true);
+  const sivra::canonicalizer::engine engine(configuration);
+
+  const auto result = engine.canonicalize(fixture.graph, root);
+
+  REQUIRE(result.status == sivra::core::analysis_status::complete);
+  REQUIRE(result.root.has_value());
+  CHECK(sivra::test_support::format_expression(result.graph, *result.root) == "x");
+  CHECK(result.statistics.rewrites_applied >= 2);
+  REQUIRE(!result.trace.empty());
+  REQUIRE(result.trace.front().old_root.has_value());
+  REQUIRE(result.trace.front().new_root.has_value());
 }
 
 TEST_CASE(

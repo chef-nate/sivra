@@ -1,6 +1,7 @@
 #include <sivra/x86/register.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <stdexcept>
 #include <utility>
@@ -63,44 +64,74 @@ std::shared_ptr<const register_catalogue> builtin_register_catalogue() {
     std::vector<register_info> registers;
     std::unordered_map<std::string, program::register_id> by_name;
 
-    const auto add_register =
-      [&](std::string key, std::string name, std::uint32_t width, register_bank bank) {
-        const auto id = program::register_id::unsafe_from_index(
-          static_cast<std::uint32_t>(registers.size()), owner
-        );
-        registers.push_back(
-          {
-            .definition =
-              {
-                .id = id,
-                .key = key,
-                .name = name,
-                .width = width,
-              },
-            .bank = bank,
-          }
-        );
-        by_name.emplace(lower(std::move(key)), id);
-        by_name.emplace(lower(std::move(name)), id);
-      };
+    const auto add_register = [&](
+                                std::string key,
+                                std::string name,
+                                std::uint32_t width,
+                                register_bank bank,
+                                std::optional<program::register_id> parent = std::nullopt,
+                                program::bit_range parent_range = {}
+                              ) {
+      const auto id = program::register_id::unsafe_from_index(
+        static_cast<std::uint32_t>(registers.size()), owner
+      );
+      registers.push_back(
+        {
+          .definition =
+            {
+              .id = id,
+              .key = key,
+              .name = name,
+              .width = width,
+              .parent = parent,
+              .parent_range = parent_range,
+            },
+          .bank = bank,
+        }
+      );
+      by_name.emplace(lower(std::move(key)), id);
+      by_name.emplace(lower(std::move(name)), id);
+      return id;
+    };
 
     for (int index = 0; index < 16; ++index) {
       add_register(
         "xmm" + std::to_string(index), "xmm" + std::to_string(index), 128, register_bank::simd
       );
     }
-    for (const auto* name : {"eax", "ebx", "ecx", "edx", "esi", "edi", "esp", "ebp"}) {
-      add_register(name, name, 32, register_bank::gpr);
+    const std::array legacy_gprs{
+      std::pair{"eax", "rax"},
+      std::pair{"ebx", "rbx"},
+      std::pair{"ecx", "rcx"},
+      std::pair{"edx", "rdx"},
+      std::pair{"esi", "rsi"},
+      std::pair{"edi", "rdi"},
+      std::pair{"esp", "rsp"},
+      std::pair{"ebp", "rbp"},
+    };
+    std::vector<program::register_id> legacy_32_ids;
+    legacy_32_ids.reserve(legacy_gprs.size());
+    for (const auto& [reg32, reg64] : legacy_gprs) {
+      legacy_32_ids.push_back(add_register(reg32, reg32, 32, register_bank::gpr));
     }
-    for (const auto* name : {"rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp"}) {
-      add_register(name, name, 64, register_bank::gpr);
+    for (std::size_t index = 0; index < legacy_gprs.size(); ++index) {
+      const auto parent =
+        add_register(legacy_gprs[index].second, legacy_gprs[index].second, 64, register_bank::gpr);
+      auto& child = registers[legacy_32_ids[index].index()].definition;
+      child.parent = parent;
+      child.parent_range = {.offset = 0, .width = 32};
     }
     for (int index = 8; index < 16; ++index) {
-      add_register(
+      const auto parent = add_register(
         "r" + std::to_string(index), "r" + std::to_string(index), 64, register_bank::gpr
       );
       add_register(
-        "r" + std::to_string(index) + "d", "r" + std::to_string(index) + "d", 32, register_bank::gpr
+        "r" + std::to_string(index) + "d",
+        "r" + std::to_string(index) + "d",
+        32,
+        register_bank::gpr,
+        parent,
+        {.offset = 0, .width = 32}
       );
     }
     add_register("mxcsr", "mxcsr", 32, register_bank::mxcsr);

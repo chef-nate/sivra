@@ -76,7 +76,10 @@ evaluation_result rewrite_context::evaluate_constants(
   ir::value_type result_type
 ) const {
   const auto& definition = operation(operation_id);
-  const auto* evaluator = m_evaluators->find(definition.stable_key());
+  if (!definition.evaluator_key().has_value()) {
+    return no_evaluation{};
+  }
+  const auto* evaluator = m_evaluators->find(*definition.evaluator_key());
   return evaluator == nullptr ? evaluation_result(no_evaluation{})
                               : evaluator->evaluate(operands, attributes, std::move(result_type));
 }
