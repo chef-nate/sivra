@@ -1,5 +1,6 @@
 #include <sivra/canonicalizer/canonicalizer.hpp>
 #include <sivra/ir/ir.hpp>
+#include <sivra/recovery/recovery.hpp>
 #include <sivra/x86/x86.hpp>
 
 #include <array>
@@ -76,6 +77,10 @@ int main() {
     std::get_if<sivra::program::memory_read_effect>(&semantics->effects.front());
   if (memory_read == nullptr || memory_read->width != 128) {
     return 12;
+  }
+  const auto state = sivra::recovery::state_index_builder::build(*decoded, provider);
+  if (!state.has_value() || state->effects(decoded->instructions().front().id).empty()) {
+    return 13;
   }
 
   return 0;

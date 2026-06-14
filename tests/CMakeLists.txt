@@ -100,12 +100,25 @@ add_sivra_test(sivra-x86-tests
     sivra::x86
 )
 
+add_sivra_test(sivra-recovery-tests
+  SOURCES
+    unit/recovery/recovery_tests.cpp
+  LIBRARIES
+    sivra::recovery
+    sivra::x86
+)
+target_compile_definitions(sivra-recovery-tests
+  PRIVATE
+    SIVRA_ASM_FIXTURE_DIRECTORY="${PROJECT_SOURCE_DIR}/tests/fixtures/asm-straight-line-v1"
+)
+
 set(sivra_unit_test_targets
   sivra-core-tests
   sivra-ir-tests
   sivra-canonicalizer-tests
   sivra-program-tests
   sivra-x86-tests
+  sivra-recovery-tests
 )
 
 if(SIVRA_BUILD_COMPAT_IMPORTERS)

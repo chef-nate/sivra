@@ -110,6 +110,19 @@ core::result_t<void> decoded_program::validate() const {
     }
   }
   std::vector<bool> referenced_instructions(m_instructions.size(), false);
+  std::vector<std::optional<std::size_t>> block_function(m_blocks.size());
+  for (std::size_t function_index = 0; function_index < m_functions.size(); ++function_index) {
+    for (const auto block : m_functions[function_index].blocks) {
+      if (!block_function[block.index()].has_value()) {
+        block_function[block.index()] = function_index;
+        continue;
+      }
+      return core::fail<void>(
+        "program.decoded_program.duplicate_block_ref",
+        "basic block appears in more than one function"
+      );
+    }
+  }
   for (std::size_t index = 0; index < m_blocks.size(); ++index) {
     const auto expected =
       basic_block_id::unsafe_from_index(static_cast<std::uint32_t>(index), m_owner);
@@ -140,6 +153,18 @@ core::result_t<void> decoded_program::validate() const {
           "basic block references a successor outside the decoded program"
         );
       }
+      if (block_function[index] != block_function[successor.index()]) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_cfg_edge",
+          "basic block successor belongs to another function"
+        );
+      }
+      if (!std::ranges::contains(m_blocks[successor.index()].predecessors, m_blocks[index].id)) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_cfg_edge",
+          "basic block successor does not record the reciprocal predecessor"
+        );
+      }
     }
     for (const auto predecessor : m_blocks[index].predecessors) {
       if (predecessor.owner() != m_owner || predecessor.index() >= m_blocks.size()) {
@@ -148,6 +173,31 @@ core::result_t<void> decoded_program::validate() const {
           "basic block references a predecessor outside the decoded program"
         );
       }
+      if (block_function[index] != block_function[predecessor.index()]) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_cfg_edge",
+          "basic block predecessor belongs to another function"
+        );
+      }
+      if (!std::ranges::contains(m_blocks[predecessor.index()].successors, m_blocks[index].id)) {
+        return core::fail<void>(
+          "program.decoded_program.invalid_cfg_edge",
+          "basic block predecessor does not record the reciprocal successor"
+        );
+      }
+    }
+    auto sorted_successors =
+      std::vector(m_blocks[index].successors.begin(), m_blocks[index].successors.end());
+    auto sorted_predecessors =
+      std::vector(m_blocks[index].predecessors.begin(), m_blocks[index].predecessors.end());
+    std::ranges::sort(sorted_successors);
+    std::ranges::sort(sorted_predecessors);
+    if (std::ranges::adjacent_find(sorted_successors) != sorted_successors.end() ||
+        std::ranges::adjacent_find(sorted_predecessors) != sorted_predecessors.end()) {
+      return core::fail<void>(
+        "program.decoded_program.duplicate_cfg_edge",
+        "basic block predecessor and successor lists must not contain duplicates"
+      );
     }
   }
   for (std::size_t index = 0; index < m_instructions.size(); ++index) {
@@ -244,6 +294,32 @@ core::result_t<instruction_id> decoded_program_builder::add_instruction(
   );
   m_blocks[block.index()].instructions.push_back(id);
   return id;
+}
+
+core::result_t<void> decoded_program_builder::add_edge(
+  basic_block_id from,
+  basic_block_id to
+) {
+  if (from.owner() != m_owner || from.index() >= m_blocks.size()) {
+    return core::fail<void>(
+      "program.decoded_program.invalid_block",
+      "control-flow edge source block does not belong to the decoded program"
+    );
+  }
+  if (to.owner() != m_owner || to.index() >= m_blocks.size()) {
+    return core::fail<void>(
+      "program.decoded_program.invalid_block",
+      "control-flow edge target block does not belong to the decoded program"
+    );
+  }
+  if (std::ranges::contains(m_blocks[from.index()].successors, to)) {
+    return core::fail<void>(
+      "program.decoded_program.duplicate_cfg_edge", "control-flow edge already exists"
+    );
+  }
+  m_blocks[from.index()].successors.push_back(to);
+  m_blocks[to.index()].predecessors.push_back(from);
+  return {};
 }
 
 core::result_t<decoded_program> decoded_program_builder::freeze() && {

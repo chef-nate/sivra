@@ -138,6 +138,7 @@ install(
     sivra-program
     sivra-canonicalizer
     sivra-x86
+    sivra-recovery
   EXPORT sivraTargets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -151,6 +152,7 @@ install(
     include/sivra/program
     include/sivra/canonicalizer
     include/sivra/x86
+    include/sivra/recovery
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sivra
   FILES_MATCHING
     PATTERN "*.hpp"

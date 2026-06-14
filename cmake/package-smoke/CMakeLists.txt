@@ -17,5 +17,6 @@ target_compile_features(sivra-package-smoke
 target_link_libraries(sivra-package-smoke
   PRIVATE
     sivra::canonicalizer
+    sivra::recovery
     sivra::x86
 )

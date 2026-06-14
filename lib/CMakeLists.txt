@@ -207,6 +207,48 @@ target_link_libraries(sivra-x86
 
 sivra_apply_build_options(sivra-x86)
 
+add_library(sivra-recovery STATIC)
+add_library(sivra::recovery ALIAS sivra-recovery)
+
+target_sources(sivra-recovery
+  PRIVATE
+    recovery/annotation.cpp
+    recovery/engine.cpp
+    recovery/memory.cpp
+    recovery/provenance.cpp
+    recovery/recovered_object.cpp
+    recovery/state_index.cpp
+    recovery/type_solver.cpp
+)
+
+target_include_directories(sivra-recovery
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_compile_features(sivra-recovery
+  PUBLIC
+    cxx_std_23
+)
+
+set_target_properties(sivra-recovery
+  PROPERTIES
+    CXX_EXTENSIONS OFF
+    EXPORT_NAME recovery
+)
+
+target_link_libraries(sivra-recovery
+  PUBLIC
+    sivra::core
+    sivra::program
+    sivra::ir
+)
+
+sivra_apply_build_options(sivra-recovery)
+
 if(SIVRA_BUILD_COMPAT_IMPORTERS)
   add_library(sivra-compat-raw-expression-json STATIC)
 

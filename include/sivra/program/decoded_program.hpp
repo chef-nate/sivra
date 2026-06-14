@@ -65,6 +65,10 @@ public:
     std::uint64_t address = 0,
     std::optional<core::source_span> source = std::nullopt
   );
+  [[nodiscard]] core::result_t<void> add_edge(
+    basic_block_id from,
+    basic_block_id to
+  );
   [[nodiscard]] core::result_t<decoded_program> freeze() &&;
   [[nodiscard]] core::owner_token owner() const;
 

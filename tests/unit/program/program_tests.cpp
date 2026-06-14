@@ -45,6 +45,33 @@ TEST_CASE(
 }
 
 TEST_CASE(
+  "decoded program builder records reciprocal control-flow edges"
+) {
+  sivra::program::instruction_catalogue_builder forms;
+  const auto form = forms.register_form("test.nop", "nop", {}, "test.nop");
+  REQUIRE(form.has_value());
+
+  sivra::program::decoded_program_builder builder(sivra::program::architecture_id("test"));
+  const auto function = builder.add_function("entry");
+  REQUIRE(function.has_value());
+  const auto source = builder.add_block(*function);
+  REQUIRE(source.has_value());
+  const auto target = builder.add_block(*function);
+  REQUIRE(target.has_value());
+  REQUIRE(builder.add_instruction(*source, *form, {}).has_value());
+  REQUIRE(builder.add_instruction(*target, *form, {}).has_value());
+
+  REQUIRE(builder.add_edge(*source, *target).has_value());
+  CHECK(!builder.add_edge(*source, *target).has_value());
+
+  auto program = std::move(builder).freeze();
+
+  REQUIRE(program.has_value());
+  CHECK(program->block(*source).successors.front() == *target);
+  CHECK(program->block(*target).predecessors.front() == *source);
+}
+
+TEST_CASE(
   "decoded program validation rejects functions without blocks"
 ) {
   sivra::program::decoded_program_builder builder(sivra::program::architecture_id("test"));
